@@ -1,0 +1,21 @@
+CREATE TABLE payroll_runs (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  period_start DATE NOT NULL,
+  period_end DATE NOT NULL,
+  regular_hours DECIMAL(6,2) NOT NULL DEFAULT 0,
+  ot_hours DECIMAL(6,2) NOT NULL DEFAULT 0,
+  rate_per_hour DECIMAL(8,2) NOT NULL DEFAULT 100.00,
+  ot_rate_per_hour DECIMAL(8,2) NOT NULL DEFAULT 110.00,
+  trip_count INT NOT NULL DEFAULT 0,
+  trip_incentive_total DECIMAL(10,2) NOT NULL DEFAULT 0,
+  gross_pay DECIMAL(10,2) NOT NULL DEFAULT 0,
+  sss_deduction DECIMAL(10,2) NOT NULL DEFAULT 0,
+  philhealth_deduction DECIMAL(10,2) NOT NULL DEFAULT 0,
+  pagibig_deduction DECIMAL(10,2) NOT NULL DEFAULT 0,
+  total_deductions DECIMAL(10,2) NOT NULL DEFAULT 0,
+  net_pay DECIMAL(10,2) NOT NULL DEFAULT 0,
+  status ENUM('draft', 'finalized') NOT NULL DEFAULT 'draft',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);

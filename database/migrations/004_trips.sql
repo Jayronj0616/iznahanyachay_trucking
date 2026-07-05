@@ -1,0 +1,9 @@
+CREATE TABLE trips (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  trip_date DATE NOT NULL,
+  destination VARCHAR(150) NULL,
+  incentive_amount DECIMAL(10,2) NOT NULL DEFAULT 50.00,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);

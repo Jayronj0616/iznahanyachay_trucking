@@ -1,0 +1,21 @@
+CREATE TABLE payslips (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  payroll_run_id INT NOT NULL,
+  user_id INT NOT NULL,
+  period_start DATE NOT NULL,
+  period_end DATE NOT NULL,
+  regular_hours DECIMAL(6,2) NOT NULL,
+  ot_hours DECIMAL(6,2) NOT NULL,
+  base_pay DECIMAL(10,2) NOT NULL,
+  ot_pay DECIMAL(10,2) NOT NULL,
+  trip_incentive_total DECIMAL(10,2) NOT NULL,
+  gross_pay DECIMAL(10,2) NOT NULL,
+  sss_deduction DECIMAL(10,2) NOT NULL,
+  philhealth_deduction DECIMAL(10,2) NOT NULL,
+  pagibig_deduction DECIMAL(10,2) NOT NULL,
+  total_deductions DECIMAL(10,2) NOT NULL,
+  net_pay DECIMAL(10,2) NOT NULL,
+  issued_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (payroll_run_id) REFERENCES payroll_runs(id),
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
