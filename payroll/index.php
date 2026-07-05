@@ -20,7 +20,46 @@ const PAGIBIG_PCT = 0.02;
 
 $db = getDB();
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['finalize_run_id'])) {
+    $runId = (int) $_POST['finalize_run_id'];
+
+    $stmt = $db->prepare('SELECT * FROM payroll_runs WHERE id = ? AND status = "draft"');
+    $stmt->execute([$runId]);
+    $run = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$run) {
+        $error = 'Payroll run not found or already finalized.';
+    } else {
+        $db->beginTransaction();
+        try {
+            $basePay = $run['regular_hours'] * $run['rate_per_hour'];
+            $otPay = $run['ot_hours'] * $run['ot_rate_per_hour'];
+
+            $stmt = $db->prepare(
+                'INSERT INTO payslips
+                 (payroll_run_id, user_id, period_start, period_end, regular_hours, ot_hours, base_pay, ot_pay,
+                  trip_incentive_total, gross_pay, sss_deduction, philhealth_deduction, pagibig_deduction,
+                  total_deductions, net_pay)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+            );
+            $stmt->execute([
+                $run['id'], $run['user_id'], $run['period_start'], $run['period_end'],
+                $run['regular_hours'], $run['ot_hours'], $basePay, $otPay,
+                $run['trip_incentive_total'], $run['gross_pay'], $run['sss_deduction'],
+                $run['philhealth_deduction'], $run['pagibig_deduction'], $run['total_deductions'], $run['net_pay'],
+            ]);
+
+            $stmt = $db->prepare('UPDATE payroll_runs SET status = "finalized" WHERE id = ?');
+            $stmt->execute([$run['id']]);
+
+            $db->commit();
+            $success = 'Payslip finalized.';
+        } catch (Exception $e) {
+            $db->rollBack();
+            $error = 'Finalize failed: ' . $e->getMessage();
+        }
+    }
+} elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $periodStart = $_POST['period_start'] ?? '';
     $periodEnd = $_POST['period_end'] ?? '';
 
@@ -119,7 +158,7 @@ $runs = $db->query(
 
   <div class="bg-gray-50 dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-xl p-6 mb-6">
     <h2 class="text-gray-900 dark:text-white font-bold mb-4">Run Payroll</h2>
-    <form method="POST" class="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+    <form method="POST" data-confirm="Run payroll for all employees in this period? This will create a payroll record for each employee." class="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
       <div>
         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Period Start</label>
         <input type="date" name="period_start" required style="color-scheme: light;" class="w-full rounded-lg border border-gray-300 dark:border-surface-border dark:bg-surface dark:text-white px-3 py-2 text-sm">
@@ -151,13 +190,14 @@ $runs = $db->query(
             <th class="pr-6 pb-3">SSS</th>
             <th class="pr-6 pb-3">PhilHealth</th>
             <th class="pr-6 pb-3">Pag-IBIG</th>
-            <th class="pb-3">Net Pay</th>
+            <th class="pr-6 pb-3">Net Pay</th>
+            <th class="pb-3">Status</th>
           </tr>
         </thead>
         <tbody>
           <?php if (empty($runs)): ?>
             <tr class="border-t border-gray-200 dark:border-surface-border">
-              <td colspan="12" class="text-center text-gray-500 dark:text-gray-400 py-6">No payroll runs yet — use Run Payroll above to get started</td>
+              <td colspan="13" class="text-center text-gray-500 dark:text-gray-400 py-6">No payroll runs yet — use Run Payroll above to get started</td>
             </tr>
           <?php else: ?>
             <?php foreach ($runs as $run): ?>
@@ -173,7 +213,17 @@ $runs = $db->query(
                 <td class="pr-6 py-2">₱<?php echo number_format($run['sss_deduction'], 2); ?></td>
                 <td class="pr-6 py-2">₱<?php echo number_format($run['philhealth_deduction'], 2); ?></td>
                 <td class="pr-6 py-2">₱<?php echo number_format($run['pagibig_deduction'], 2); ?></td>
-                <td class="py-2 font-bold">₱<?php echo number_format($run['net_pay'], 2); ?></td>
+                <td class="pr-6 py-2 font-bold">₱<?php echo number_format($run['net_pay'], 2); ?></td>
+                <td class="py-2">
+                  <?php if ($run['status'] === 'finalized'): ?>
+                    <span class="inline-block bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-semibold px-2 py-1 rounded-full">Finalized</span>
+                  <?php else: ?>
+                    <form method="POST" data-confirm="Finalize this payslip? This cannot be undone.">
+                      <input type="hidden" name="finalize_run_id" value="<?php echo (int) $run['id']; ?>">
+                      <button type="submit" class="bg-brand-orange text-white text-xs font-semibold px-3 py-1.5 rounded-full hover:opacity-90 transition">Finalize</button>
+                    </form>
+                  <?php endif; ?>
+                </td>
               </tr>
             <?php endforeach; ?>
           <?php endif; ?>
@@ -187,5 +237,6 @@ $runs = $db->query(
 <?php
 $navBase = BASE_PATH;
 include __DIR__ . '/../includes/bottom-nav.php';
+include __DIR__ . '/../includes/confirm-modal.php';
 include __DIR__ . '/../includes/foot.php';
 ?>
