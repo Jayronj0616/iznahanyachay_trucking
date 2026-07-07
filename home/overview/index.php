@@ -1,4 +1,7 @@
 <?php
+require_once __DIR__ . '/../../includes/auth.php';
+requireLogin();
+
 $pageTitle = 'Dashboard Overview';
 $activeNav = 'overview';
 include __DIR__ . '/../../includes/head.php';

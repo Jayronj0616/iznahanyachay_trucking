@@ -10,8 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($email === '' || $password === '') {
         $error = 'Please enter email and password.';
     } elseif (attemptLogin($email, $password)) {
-        $redirect = $_SESSION['user']['role'] === 'admin' ? '/admin/home/' : '/home/';
-        header('Location: ' . BASE_PATH . $redirect);
+        header('Location: ' . BASE_PATH . '/home/');
         exit;
     } else {
         $error = 'Invalid email or password.';

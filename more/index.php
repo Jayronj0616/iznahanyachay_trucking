@@ -1,4 +1,7 @@
 <?php
+require_once __DIR__ . '/../includes/auth.php';
+requireLogin();
+
 $pageTitle = 'Settings';
 $activeNav = 'more';
 include __DIR__ . '/../includes/head.php';
@@ -21,6 +24,16 @@ include __DIR__ . '/../includes/topbar.php';
       </span>
     </a>
 
+    <?php if ($_SESSION['user']['role'] === 'admin'): ?>
+    <a href="<?php echo BASE_PATH; ?>/more/employees/" class="flex items-start gap-3 px-5 py-4 hover:bg-gray-50 dark:hover:bg-white/5 transition">
+      <span class="text-xl">🧑‍💼</span>
+      <span>
+        <span class="block font-semibold text-gray-900 dark:text-white">Employees</span>
+        <span class="block text-sm text-gray-500 dark:text-gray-400">Manage employee records</span>
+      </span>
+    </a>
+    <?php endif; ?>
+
     <a href="<?php echo BASE_PATH; ?>/more/privacy-policy/" class="flex items-start gap-3 px-5 py-4 hover:bg-gray-50 dark:hover:bg-white/5 transition">
       <span class="text-xl">🔒</span>
       <span>
@@ -36,6 +49,16 @@ include __DIR__ . '/../includes/topbar.php';
         <span class="block text-sm text-gray-500 dark:text-gray-400">System info</span>
       </span>
     </a>
+
+    <form method="POST" action="<?php echo BASE_PATH; ?>/logout/">
+      <button type="submit" class="w-full flex items-start gap-3 px-5 py-4 hover:bg-gray-50 dark:hover:bg-white/5 transition text-left">
+        <span class="text-xl">🚪</span>
+        <span>
+          <span class="block font-semibold text-red-600 dark:text-red-400">Logout</span>
+          <span class="block text-sm text-gray-500 dark:text-gray-400">Sign out of your account</span>
+        </span>
+      </button>
+    </form>
 
   </div>
 </main>

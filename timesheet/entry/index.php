@@ -2,7 +2,8 @@
 $pageTitle = 'Timesheet Entry';
 $activeNav = 'timesheet';
 require_once __DIR__ . '/../../includes/auth.php';
-requireAdmin();
+requireLogin();
+$isAdmin = $_SESSION['user']['role'] === 'admin';
 include __DIR__ . '/../../includes/head.php';
 
 $pageIcon = '⏱️';
@@ -13,15 +14,21 @@ $db = getDB();
 $error = null;
 $success = null;
 
-$userId = isset($_GET['user_id']) ? (int) $_GET['user_id'] : 0;
+$userId = $isAdmin ? (isset($_GET['user_id']) ? (int) $_GET['user_id'] : 0) : (int) $_SESSION['user']['id'];
 $date = $_GET['date'] ?? '';
 
-$stmt = $db->prepare("SELECT id, name FROM users WHERE id = ? AND role = 'employee'");
-$stmt->execute([$userId]);
-$employee = $stmt->fetch(PDO::FETCH_ASSOC);
+if ($isAdmin) {
+    $stmt = $db->prepare("SELECT id, name FROM users WHERE id = ? AND role = 'employee'");
+    $stmt->execute([$userId]);
+    $employee = $stmt->fetch(PDO::FETCH_ASSOC);
+} else {
+    $stmt = $db->prepare('SELECT id, name FROM users WHERE id = ?');
+    $stmt->execute([$userId]);
+    $employee = $stmt->fetch(PDO::FETCH_ASSOC);
+}
 
 if (!$employee || !$date) {
-    header('Location: ' . BASE_PATH . '/admin/timesheet/');
+    header('Location: ' . BASE_PATH . '/timesheet/');
     exit;
 }
 
@@ -48,11 +55,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $success = 'Entry saved.';
         }
-    } elseif (isset($_POST['approve'])) {
+    } elseif ($isAdmin && isset($_POST['approve'])) {
         $stmt = $db->prepare('UPDATE timesheet_entries SET status = "approved", rejection_reason = NULL WHERE user_id = ? AND date = ?');
         $stmt->execute([$userId, $date]);
         $success = 'Entry approved.';
-    } elseif (isset($_POST['reject'])) {
+    } elseif ($isAdmin && isset($_POST['reject'])) {
         $reason = trim($_POST['rejection_reason'] ?? '');
         if (!$reason) {
             $error = 'A rejection reason is required.';
@@ -72,7 +79,7 @@ $entry = $stmt->fetch(PDO::FETCH_ASSOC);
 <main class="max-w-2xl mx-auto w-full px-4 pb-32 pt-4 sm:px-6 space-y-6">
 
   <div>
-    <a href="<?php echo BASE_PATH; ?>/admin/timesheet/?user_id=<?php echo $userId; ?>" class="text-brand-green text-sm font-semibold">&larr; Back to calendar</a>
+    <a href="<?php echo BASE_PATH; ?>/timesheet/<?php echo $isAdmin ? '?user_id=' . $userId : ''; ?>" class="text-brand-green text-sm font-semibold">&larr; Back to calendar</a>
   </div>
 
   <h1 class="text-gray-900 dark:text-white font-bold text-lg">
@@ -103,6 +110,7 @@ $entry = $stmt->fetch(PDO::FETCH_ASSOC);
   <?php if ($entry): ?>
     <div class="bg-gray-50 dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-xl p-6">
       <h2 class="text-gray-900 dark:text-white font-bold mb-4">Approval Status</h2>
+      <?php if (!isset($entry['status'])): ?><?php $entry['status'] = 'pending'; ?><?php endif; ?>
 
       <p class="text-sm text-gray-700 dark:text-gray-300 mb-4">
         Current status:
@@ -114,6 +122,7 @@ $entry = $stmt->fetch(PDO::FETCH_ASSOC);
         <?php endif; ?>
       </p>
 
+      <?php if ($isAdmin): ?>
       <div class="flex gap-3 mb-4">
         <form method="POST">
           <button type="submit" name="approve" value="1" class="bg-brand-green text-white text-sm font-semibold px-4 py-2 rounded-full hover:opacity-90 transition">Approve</button>
@@ -124,6 +133,7 @@ $entry = $stmt->fetch(PDO::FETCH_ASSOC);
         <input type="text" name="rejection_reason" placeholder="Reason for rejection" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-3 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-brand-yellow">
         <button type="submit" name="reject" value="1" class="bg-brand-orange text-white text-sm font-semibold px-4 py-2 rounded-full hover:opacity-90 transition">Reject</button>
       </form>
+      <?php endif; ?>
     </div>
   <?php else: ?>
     <p class="text-gray-500 dark:text-gray-400 text-sm">No entry yet for this date — save a time first before approving or rejecting.</p>
@@ -132,7 +142,7 @@ $entry = $stmt->fetch(PDO::FETCH_ASSOC);
 </main>
 
 <?php
-$navBase = BASE_PATH . '/admin';
+$navBase = BASE_PATH;
 include __DIR__ . '/../../includes/bottom-nav.php';
 include __DIR__ . '/../../includes/foot.php';
 ?>
