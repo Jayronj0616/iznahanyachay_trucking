@@ -8,6 +8,10 @@ include __DIR__ . '/../includes/head.php';
 
 $pageIcon = '⏱️';
 $pageLabel = 'Timesheet';
+$isAdminForTopbar = $_SESSION['user']['role'] === 'admin';
+$topbarExtra = !$isAdminForTopbar
+    ? '<a href="' . BASE_PATH . '/timesheet/log/" class="inline-flex items-center gap-2 bg-brand-green text-white text-sm font-semibold px-4 py-2 rounded-full hover:opacity-90 transition">🕘 History</a>'
+    : '';
 include __DIR__ . '/../includes/topbar.php';
 
 $db = getDB();
@@ -27,37 +31,6 @@ if ($isAdmin) {
 $daysInMonth = (int) date('t');
 $monthAbbr = date('M');
 $today = (int) date('j');
-
-$error = null;
-$success = null;
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $userId = $isAdmin ? (int) ($_POST['user_id'] ?? 0) : (int) $_SESSION['user']['id'];
-    $date = $_POST['date'] ?? '';
-    $timeIn = $_POST['time_in'] ?? '';
-    $timeOut = $_POST['time_out'] ?? '';
-
-    if (!$userId || !$date || !$timeIn || !$timeOut) {
-        $error = 'All fields are required.';
-    } elseif ($timeOut <= $timeIn) {
-        $error = 'Time out must be after time in.';
-    } else {
-        $stmt = $db->prepare('SELECT id FROM timesheet_entries WHERE user_id = ? AND date = ?');
-        $stmt->execute([$userId, $date]);
-        $existing = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if ($existing) {
-            $stmt = $db->prepare('UPDATE timesheet_entries SET time_in = ?, time_out = ?, type = "manual" WHERE id = ?');
-            $stmt->execute([$timeIn, $timeOut, $existing['id']]);
-            $success = 'Entry updated.';
-        } else {
-            $stmt = $db->prepare('INSERT INTO timesheet_entries (user_id, date, time_in, time_out, type) VALUES (?, ?, ?, ?, "manual")');
-            $stmt->execute([$userId, $date, $timeIn, $timeOut]);
-            $success = 'Entry saved.';
-        }
-        $selectedUserId = $userId;
-    }
-}
 
 $monthStart = date('Y-m-01');
 $monthEnd = date('Y-m-t');
@@ -124,31 +97,6 @@ if ($selectedUserId) {
     </div>
   </div>
 
-  <?php if ($error): ?>
-    <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 rounded-xl p-4 text-sm">
-      <?php echo htmlspecialchars($error); ?>
-    </div>
-  <?php endif; ?>
-
-  <?php if ($success): ?>
-    <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 rounded-xl p-4 text-sm">
-      <?php echo htmlspecialchars($success); ?>
-    </div>
-  <?php endif; ?>
-
-  <div class="bg-gray-50 dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-xl p-6">
-    <h2 class="text-gray-900 dark:text-white font-bold mb-4">Add Time (Manual)</h2>
-    <form method="POST" class="space-y-3">
-      <?php if ($isAdmin): ?>
-      <input type="hidden" name="user_id" value="<?php echo $selectedUserId; ?>">
-      <?php endif; ?>
-      <input type="date" name="date" required style="color-scheme: light;" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-3 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
-      <input type="time" name="time_in" required style="color-scheme: light;" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-3 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
-      <input type="time" name="time_out" required style="color-scheme: light;" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-3 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
-      <button type="submit" class="block w-full text-center bg-brand-green text-white font-bold rounded-lg px-5 py-3 hover:opacity-90 transition">Save</button>
-    </form>
-  </div>
-
   <div class="bg-gray-50 dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-xl p-6">
     <h2 class="text-gray-900 dark:text-white font-bold mb-1">Scan QR (Auto Time In/Out)</h2>
     <p class="text-gray-500 dark:text-gray-400 text-sm">Waiting for scan...</p>
@@ -189,5 +137,6 @@ if ($selectedUserId) {
 <?php
 $navBase = BASE_PATH;
 include __DIR__ . '/../includes/bottom-nav.php';
+include __DIR__ . '/../includes/confirm-modal.php';
 include __DIR__ . '/../includes/foot.php';
 ?>

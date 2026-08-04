@@ -6,6 +6,7 @@
   <div id="ts-confirm-backdrop" class="absolute inset-0 bg-black/50"></div>
   <div class="relative bg-white dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-xl shadow-xl max-w-sm w-full p-6">
     <h3 class="text-gray-900 dark:text-white font-bold text-base mb-2">Confirm Action</h3>
+    <img id="ts-confirm-image" class="hidden w-full rounded-lg mb-4 border border-gray-200 dark:border-surface-border" alt="Captured photo">
     <p id="ts-confirm-message" class="text-sm text-gray-600 dark:text-gray-300 mb-6">Are you sure?</p>
     <div class="flex justify-end gap-3">
       <button type="button" id="ts-confirm-cancel" class="text-sm font-semibold text-gray-600 dark:text-gray-300 px-4 py-2 rounded-full hover:bg-gray-100 dark:hover:bg-white/5 transition">Cancel</button>
@@ -19,12 +20,23 @@
   var modal = document.getElementById('ts-confirm-modal');
   var backdrop = document.getElementById('ts-confirm-backdrop');
   var messageEl = document.getElementById('ts-confirm-message');
+  var imageEl = document.getElementById('ts-confirm-image');
   var okBtn = document.getElementById('ts-confirm-ok');
   var cancelBtn = document.getElementById('ts-confirm-cancel');
   var pendingForm = null;
 
   function openModal(message, form) {
     messageEl.textContent = message;
+
+    var photoInput = form.querySelector('[name="photo_data"]');
+    if (photoInput && photoInput.value) {
+      imageEl.src = photoInput.value;
+      imageEl.classList.remove('hidden');
+    } else {
+      imageEl.classList.add('hidden');
+      imageEl.removeAttribute('src');
+    }
+
     pendingForm = form;
     modal.classList.remove('hidden');
   }
@@ -37,11 +49,14 @@
   cancelBtn.addEventListener('click', closeModal);
   backdrop.addEventListener('click', closeModal);
 
-  okBtn.addEventListener('click', function () {
+  okBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
     var form = pendingForm;
     closeModal();
     if (form) {
-      form.submit();
+      form.dataset.confirmed = '1';
+      var submitter = form.querySelector('button[type="submit"]:not([disabled])') || form.querySelector('button[type="submit"]');
+      form.requestSubmit(submitter);
     }
   });
 

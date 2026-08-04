@@ -1,4 +1,6 @@
 <?php
+date_default_timezone_set('Asia/Manila');
+
 // Change this if the project ever moves to a vhost root (e.g. '' for trucking_system.test)
 define('BASE_PATH', '/trucking_system');
 
