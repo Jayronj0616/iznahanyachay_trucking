@@ -5,11 +5,6 @@ require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../includes/biometric.php';
 requireLogin();
 $isAdmin = $_SESSION['user']['role'] === 'admin';
-include __DIR__ . '/../../includes/head.php';
-
-$pageIcon = '⏱️';
-$pageLabel = 'Timesheet';
-include __DIR__ . '/../../includes/topbar.php';
 
 $db = getDB();
 $error = null;
@@ -107,6 +102,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $stmt = $db->prepare('SELECT * FROM timesheet_entries WHERE user_id = ? AND date = ?');
 $stmt->execute([$userId, $date]);
 $entry = $stmt->fetch(PDO::FETCH_ASSOC);
+
+include __DIR__ . '/../../includes/head.php';
+
+$pageIcon = '⏱️';
+$pageLabel = 'Timesheet';
+include __DIR__ . '/../../includes/topbar.php';
 ?>
 
 <main class="max-w-2xl mx-auto w-full px-4 pb-32 pt-4 sm:px-6 space-y-6">
