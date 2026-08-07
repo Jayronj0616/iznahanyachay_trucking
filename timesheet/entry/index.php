@@ -29,6 +29,12 @@ if (!$employee || !$date) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if ($isAdmin && (isset($_POST['save_time_in']) || isset($_POST['save_time_out']))) {
+        // Admin is view/approve/reject/delete only — never allowed to record time in/out, even via crafted POST.
+        header('Location: ' . BASE_PATH . '/timesheet/entry/?user_id=' . $userId . '&date=' . urlencode($date));
+        exit;
+    }
+
     if (isset($_POST['save_time_in'])) {
         $timeIn = date('H:i:s');
         $photoData = $_POST['photo_data'] ?? '';
@@ -88,6 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute([$userId, $date]);
         $success = 'Entry approved.';
     } elseif ($isAdmin && isset($_POST['reject'])) {
+        // Reject is kept DB-side only (no UI trigger currently wired) per explicit direction.
         $reason = trim($_POST['rejection_reason'] ?? '');
         if (!$reason) {
             $error = 'A rejection reason is required.';
@@ -96,12 +103,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$reason, $userId, $date]);
             $success = 'Entry rejected.';
         }
+    } elseif ($isAdmin && isset($_POST['delete_entry'])) {
+        // Soft delete: only allowed while status is still pending. Approved entries can never be deleted from here.
+        $stmt = $db->prepare("UPDATE timesheet_entries SET deleted_at = NOW() WHERE user_id = ? AND date = ? AND status = 'pending' AND deleted_at IS NULL");
+        $stmt->execute([$userId, $date]);
+        if ($stmt->rowCount() > 0) {
+            $success = 'Entry deleted.';
+        } else {
+            $error = 'This entry cannot be deleted (already approved or already deleted).';
+        }
     }
 }
 
 $stmt = $db->prepare('SELECT * FROM timesheet_entries WHERE user_id = ? AND date = ?');
 $stmt->execute([$userId, $date]);
 $entry = $stmt->fetch(PDO::FETCH_ASSOC);
+
+// Deleted entries are terminal for everyone: no recovery via this page, treated as if no entry exists.
+$isDeleted = $entry && !empty($entry['deleted_at']);
+if ($isDeleted) {
+    $entry = null;
+}
+
+// Employee sees a generic contact-admin message for rejected entries, no status/reason exposed.
+// Admin sees real state and can still approve a rejected entry.
+$isRejectedForEmployee = !$isAdmin && $entry && $entry['status'] === 'rejected';
 
 include __DIR__ . '/../../includes/head.php';
 
@@ -137,7 +163,34 @@ include __DIR__ . '/../../includes/topbar.php';
   <div class="bg-gray-50 dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-xl p-6">
     <h2 class="text-gray-900 dark:text-white font-bold mb-4">Time In / Time Out</h2>
 
-    <?php if (!$isToday && (!$entry || !$entry['time_in'])): ?>
+    <?php if ($isRejectedForEmployee): ?>
+      <p class="text-gray-500 dark:text-gray-400 text-sm">There was an issue with this entry — please contact your admin.</p>
+
+    <?php elseif ($isAdmin): ?>
+      <?php if (!$entry || !$entry['time_in']): ?>
+        <p class="text-gray-500 dark:text-gray-400 text-sm">No entry recorded for this date.</p>
+      <?php else: ?>
+        <div class="mb-3">
+          <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Time In (recorded)</label>
+          <input type="time" value="<?php echo htmlspecialchars($entry['time_in']); ?>" disabled class="w-full bg-gray-100 dark:bg-surface/50 border border-gray-300 dark:border-surface-border rounded-lg px-4 py-3 text-gray-500 dark:text-gray-400">
+        </div>
+        <?php if (!empty($entry['time_in_photo'])): ?>
+        <div class="mb-3">
+          <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Time In Photo</label>
+          <img src="<?php echo BASE_PATH . '/' . htmlspecialchars($entry['time_in_photo']); ?>" alt="Time in photo" class="w-full rounded-lg border border-gray-300 dark:border-surface-border">
+        </div>
+        <?php endif; ?>
+        <?php if ($entry['time_out']): ?>
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Time Out (recorded)</label>
+          <input type="time" value="<?php echo htmlspecialchars($entry['time_out']); ?>" disabled class="w-full bg-gray-100 dark:bg-surface/50 border border-gray-300 dark:border-surface-border rounded-lg px-4 py-3 text-gray-500 dark:text-gray-400">
+        </div>
+        <?php else: ?>
+        <p class="text-gray-500 dark:text-gray-400 text-sm">Time out not yet recorded.</p>
+        <?php endif; ?>
+      <?php endif; ?>
+
+    <?php elseif (!$isToday && (!$entry || !$entry['time_in'])): ?>
       <p class="text-gray-500 dark:text-gray-400 text-sm">
         <?php echo $date > date('Y-m-d') ? 'This is a future date — nothing to show yet.' : 'No entry was recorded for this date.'; ?>
       </p>
@@ -147,18 +200,13 @@ include __DIR__ . '/../../includes/topbar.php';
         <input type="time" name="time_in" required value="<?php echo date('H:i'); ?>" style="color-scheme: light;" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-3 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
         <input type="hidden" name="photo_data" id="photo_data" value="">
 
-        <?php if (!$isAdmin): ?>
         <video id="camera-video" autoplay playsinline class="w-full rounded-lg border border-gray-300 dark:border-surface-border hidden"></video>
         <canvas id="camera-canvas" class="hidden"></canvas>
         <button type="button" id="time-in-trigger" class="block w-full text-center bg-brand-green text-white font-bold rounded-lg px-5 py-3 hover:opacity-90 transition">Time In</button>
         <button type="button" id="camera-capture-btn" class="hidden block w-full text-center bg-brand-orange text-white font-bold rounded-lg px-5 py-3 hover:opacity-90 transition">Capture Photo</button>
         <button type="submit" name="save_time_in" value="1" id="time-in-submit" class="hidden"></button>
-        <?php else: ?>
-        <button type="submit" name="save_time_in" value="1" class="block w-full text-center bg-brand-green text-white font-bold rounded-lg px-5 py-3 hover:opacity-90 transition">Time In</button>
-        <?php endif; ?>
       </form>
 
-      <?php if (!$isAdmin): ?>
       <script>
       (function () {
         var video = document.getElementById('camera-video');
@@ -197,7 +245,6 @@ include __DIR__ . '/../../includes/topbar.php';
         });
       })();
       </script>
-      <?php endif; ?>
 
     <?php elseif (!$entry['time_out']): ?>
       <div class="mb-3">
@@ -235,11 +282,12 @@ include __DIR__ . '/../../includes/topbar.php';
     <?php endif; ?>
   </div>
 
-  <?php if ($entry): ?>
+  <?php if ($entry && !$isRejectedForEmployee): ?>
     <div class="bg-gray-50 dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-xl p-6">
       <h2 class="text-gray-900 dark:text-white font-bold mb-4">Approval Status</h2>
       <?php if (!isset($entry['status'])): ?><?php $entry['status'] = 'pending'; ?><?php endif; ?>
 
+      <?php if ($isAdmin): ?>
       <p class="text-sm text-gray-700 dark:text-gray-300 mb-4">
         Current status:
         <span class="font-semibold">
@@ -250,20 +298,26 @@ include __DIR__ . '/../../includes/topbar.php';
         <?php endif; ?>
       </p>
 
-      <?php if ($isAdmin): ?>
-      <div class="flex gap-3 mb-4">
+      <div class="flex gap-3">
+        <?php if ($entry['status'] !== 'approved'): ?>
         <form method="POST">
           <button type="submit" name="approve" value="1" class="bg-brand-green text-white text-sm font-semibold px-4 py-2 rounded-full hover:opacity-90 transition">Approve</button>
         </form>
+        <?php endif; ?>
+        <?php if ($entry['status'] === 'pending'): ?>
+        <form method="POST" data-confirm="Delete this entry? This cannot be undone.">
+          <button type="submit" name="delete_entry" value="1" class="bg-red-600 text-white text-sm font-semibold px-4 py-2 rounded-full hover:opacity-90 transition">Delete</button>
+        </form>
+        <?php endif; ?>
       </div>
-
-      <form method="POST" class="space-y-3">
-        <input type="text" name="rejection_reason" placeholder="Reason for rejection" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-3 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-brand-yellow">
-        <button type="submit" name="reject" value="1" class="bg-brand-orange text-white text-sm font-semibold px-4 py-2 rounded-full hover:opacity-90 transition">Reject</button>
-      </form>
+      <?php else: ?>
+      <p class="text-sm text-gray-700 dark:text-gray-300">
+        Current status:
+        <span class="font-semibold"><?php echo htmlspecialchars(ucfirst($entry['status'])); ?></span>
+      </p>
       <?php endif; ?>
     </div>
-  <?php else: ?>
+  <?php elseif ($entry === null && !$isRejectedForEmployee): ?>
     <p class="text-gray-500 dark:text-gray-400 text-sm">No entry yet for this date — save a time first before approving or rejecting.</p>
   <?php endif; ?>
 
