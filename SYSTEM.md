@@ -9,11 +9,25 @@ RULE FOR WHOEVER CONTINUES THIS: the moment a page/function moves to a new statu
 
 ## SESSION HANDOFF (read this first)
 
-THIS SESSION (latest, IN PROGRESS) — BUG FOUND, fix PLANNED but NOT YET CODED: admin can Time In / Time Out AS an employee on `timesheet/entry/index.php` (admin picks employee via dropdown on `timesheet/index.php`, clicks a day, gets a live working Time In/Time Out form — same as the employee's own flow, minus the camera requirement). Admin role must be view/approve/reject ONLY, never act as the employee. User confirmed:
-1. Admin should NOT see Time In/Time Out forms at all on `entry/index.php` — read-only view only (recorded time/photo if present, or "no entry" state), regardless of entry state (none / time_in only / both set).
-2. `save_time_in`/`save_time_out` POST handlers must be server-side blocked for admin too, not just UI-hidden (a crafted POST must not bypass it).
-PLAN: (a) in `entry/index.php` POST handling, reject `save_time_in`/`save_time_out` immediately if `$isAdmin`, before any DB work; (b) remove admin's Time In/Time Out button branches in the Time In/Time Out card, collapse to a single read-only render for admin covering all entry states. Approval Status card (approve/delete) unchanged, stays admin-only — that's legitimate admin action. Not yet touched: `timesheet/index.php` day-link label ("Tap to Add" reads wrong for admin now that admin is view-only) — flagged, not in scope unless user asks.
-STATUS: plan confirmed, code NOT yet written this pass.
+DEPLOYMENT: project is now live on InfinityFree, domain truckingsystem.ct.ws, deployed at htdocs root (not a /trucking_system subfolder). Live `includes/config.php` has `BASE_PATH` set to `''` (empty string) — this differs from local, where it's `/trucking_system`. Live DB: host `sql301.infinityfree.com`, name `if0_42596519_iznahanyachay_trucking`, user `if0_42596519`. Local DB schema+seed data was exported/imported into live DB via phpMyAdmin. NOTE: local and live `config.php` will always differ — no env-based config split exists yet, whoever deploys changes must manually swap BASE_PATH/DB values and remember not to overwrite the live file with the local one.
+
+THIS SESSION (latest) — Self-signup + admin approval flow BUILT, CODE DONE, migration NOT YET RUN by user (local or live), NOT YET TESTED.
+
+1. Migration `013_employee_status_pending.sql` — widens `employee_profiles.status` enum from `('active','inactive')` to `('pending','active','inactive')`, default stays `'active'` (so admin-created accounts via `home/invite/` still land active by default; only self-signup explicitly sets `'pending'`). MUST BE RUN on both local and live DB before testing — not run yet.
+2. `signup/index.php` — was pure UI-only placeholder (no name attrs, no form tag, no backend), now fully wired. Minimal fields only: name, email, password, confirm — deliberately does NOT collect license/hire-date/phone, those stay admin-owned via `more/employees/`. Creates `users` (role='employee') + `employee_profiles` (status='pending') in a transaction, same insert pattern as `home/invite/`. On success shows "awaiting admin approval" message instead of auto-login.
+3. `includes/auth.php` — `attemptLogin()` signature changed, now takes an optional `&$failReason` by-ref param ('invalid' | 'pending'). Blocks login for any employee whose `employee_profiles.status = 'pending'`. Admin accounts have no employee_profiles row, unaffected. `login/index.php` updated to pass the new param and show a distinct "Your account is awaiting admin approval." message when reason is 'pending'.
+4. `more/employees/index.php` — new "Pending Approvals" section at top of page (only renders when pending rows exist), lists name/email per pending signup with Approve/Reject buttons. Approve sets status→'active'. Reject hard-deletes both the `users` and `employee_profiles` rows (per explicit direction — nothing worth keeping for a rejected signup). Both actions are POST + confirm-modal, admin-only (page already behind requireAdmin()). Main "All Employees" table query updated to exclude status='pending' rows (they only show in the new pending section now, not duplicated below).
+5. NOT YET TESTED: run migration 013 first (local AND live), then verify — signup creates a pending account, pending account cannot log in (correct message shown), pending account shows up in Pending Approvals, Approve flips it active and login then works, Reject deletes the account cleanly (row gone from both tables, email free to reuse).
+
+PRIOR SESSION — fixed two live-deployment bugs found after first deploy: (a) "Get Started" link 404'd — root cause was `BASE_PATH` still set to `/trucking_system` while the live site is deployed at domain root; fixed by setting it to `''` on the live config only (local stays `/trucking_system`). (b) Admin login threw InfinityFree's generic "unable to handle request" error — root cause was `config.php` DB credentials still pointing at local XAMPP (`localhost`/`root`/no password) instead of the live InfinityFree DB; fixed by swapping in the real live DB host/name/user/pass (see DEPLOYMENT note above) and importing the local DB export into the live (then-empty) database.
+
+PRIOR SESSION — Admin-can-time-in-as-employee bug: CODE DONE on `timesheet/entry/index.php`, NOT YET TESTED BY USER.
+
+1. Server-side: `save_time_in`/`save_time_out` POST handlers now hard-blocked for admin at the very top of POST handling, before any DB work — redirects back immediately. Closes the crafted-POST bypass, not just a UI hide.
+2. UI: Time In/Time Out card now has a dedicated `$isAdmin` branch, fully separate from the employee form branches. Covers all entry states read-only: no entry → "No entry recorded for this date."; time_in only → shows recorded Time In (+ photo if present) + "Time out not yet recorded."; both set → shows recorded Time In + Time Out (+ photo if present). Admin never sees a Time In/Time Out button or form anywhere on this page now.
+3. Employee-side branches (no entry/future date, time-in form w/ camera, time-out form, both-set read-only) unchanged in behavior — just de-duplicated since the old inline admin-submit-button branch inside the time-in form was removed (dead now that admin has its own top-level branch).
+4. Approval Status card (approve/delete) untouched, stays admin-only — that was already legitimate admin action, not part of this bug.
+5. NOT YET TESTED BY USER: (a) admin viewing a date with no entry, time_in-only, and both-set — confirm read-only rendering correct in all three; (b) crafted POST as admin with `save_time_in`/`save_time_out` — confirm redirect happens, no DB write; (c) employee flow still works unaffected (time-in w/ camera, time-out, both-set display) — should be unchanged but re-verify after the edit.
 
 PRIOR SESSION — Soft-delete + reject-UI removal on `timesheet/entry/index.php`, CODE DONE, MIGRATION RUN, NOT YET TESTED BY USER:
 
@@ -28,8 +42,8 @@ PRIOR SESSION — Soft-delete + reject-UI removal on `timesheet/entry/index.php`
 PRIOR SESSION — Two small fixes, both confirmed working by user:
 
 1. `includes/topbar.php` — added optional `$topbarExtra` slot (raw HTML string, rendered between title and theme toggle). Left unset/empty by default, backward compatible with all other pages that include topbar.php without setting it.
-2. `timesheet/index.php` — wired the employee-only "History" button into `$topbarExtra` (was previously a standalone row below the topbar). Set before `include topbar.php`, admin gets empty string (no button). `str_replace` failed (File not found) on this file again — used `write_file` full overwrite per established workaround, verified after write.
-3. `timesheet/log/index.php` (History page) — redesigned entry list. WAS: two stacked rows per date (Time Out row on top, Time In row below, each with its own avatar/placeholder). NOW: one container per date, single row, Time In (photo + green dot + time) on the left, Time Out (red dot + time, no photo) on the right, flex justify-between. If only one of time_in/time_out exists for a date, only that side renders. `str_replace` failed on this file too (same known issue) — used `write_file` full overwrite, verified after write.
+2. `timesheet/index.php` — wired the employee-only "History" button into `$topbarExtra` (was previously a standalone row below the topbar). Set before `include topbar.php`, admin gets empty string (no button). `write_file` full overwrite used per established workaround (edit_file/str_replace tool unreliable on this project — see tooling note below).
+3. `timesheet/log/index.php` (History page) — redesigned entry list. WAS: two stacked rows per date (Time Out row on top, Time In row below, each with its own avatar/placeholder). NOW: one container per date, single row, Time In (photo + green dot + time) on the left, Time Out (red dot + time, no photo) on the right, flex justify-between. If only one of time_in/time_out exists for a date, only that side renders.
 
 Both fixes tested and confirmed working by user this session.
 
@@ -38,96 +52,92 @@ PRIOR SESSION — Biometric time-in/time-out rework on `timesheet/entry/index.ph
 - DB: migration `011_timesheet_biometrics.sql` adds `time_in_photo VARCHAR(255) NULL` to `timesheet_entries`. RUN by user, confirmed live. New folder `assets/uploads/biometrics/` created for captured JPEGs.
 - New helper `includes/biometric.php` — `saveBiometricPhoto($dataUrl, $userId, $date)` decodes a base64 data-URL and writes it to `assets/uploads/biometrics/{userId}_{date}_{timestamp}.jpg`, returns the relative path or null on failure.
 - Backend logic split: old single `save_time` action (required time_in AND time_out together) replaced with two independent actions, `save_time_in` and `save_time_out`, on both pages:
-  - `save_time_in`: blocks if an entry already has `time_in` set (server-side lock, not just UI). Employees MUST supply `photo_data` (base64 capture) or it errors — admins entering on behalf of an employee are exempt from the photo requirement (per user's explicit direction: biometric applies to employee self-entry only). Saves `time_in` + `time_in_photo` path.
+  - `save_time_in`: blocks if an entry already has `time_in` set (server-side lock, not just UI). Employees MUST supply `photo_data` (base64 capture) or it errors — admin has no time-in path at all as of the admin-time-in-block fix above.
   - `save_time_out`: blocks unless an entry with `time_in` already exists. No photo required. Validates time_out > time_in.
 - UI lock (entry page only, since it's per-date): no entry/no time_in → only Time In control shown. time_in set, no time_out → time_in rendered disabled, only Time Out control active. Both set → both fields locked read-only, no forms. NOTE: `timesheet/index.php`'s inline manual forms do NOT have this pre-emptive greyed-out lock (any date can be picked freely there, so there's no single date to lock against ahead of typing) — the same lock rules are enforced server-side only on that page. Flagged to user as a scoping tradeoff, not objected to.
-- Webcam capture flow (employee-only, both pages, mirrored with `manual-` prefixed element IDs on the calendar page to avoid ID collisions): clicking "Time In" opens the camera live (`getUserMedia`) in place of submitting — button swaps to "Capture Photo" — clicking that snaps a canvas frame, stores it as a base64 JPEG in a hidden `photo_data` field, stops the camera stream, then calls `form.requestSubmit()`. No separate "Open Camera"/"Retake" step — matches user's explicit requested flow (click Time In → camera opens → employee captures → submits with confirm). Admin path has no camera, plain submit button. NOTE: this admin plain-submit path is exactly what THIS SESSION's bug/fix (see top) is removing — admin should not have any submit path here at all.
+- Webcam capture flow (employee-only, both pages, mirrored with `manual-` prefixed element IDs on the calendar page to avoid ID collisions): clicking "Time In" opens the camera live (`getUserMedia`) in place of submitting — button swaps to "Capture Photo" — clicking that snaps a canvas frame, stores it as a base64 JPEG in a hidden `photo_data` field, stops the camera stream, then calls `form.requestSubmit()`. No separate "Open Camera"/"Retake" step — matches user's explicit requested flow (click Time In → camera opens → employee captures → submits with confirm).
 - Confirm modal (`includes/confirm-modal.php`) extended: now shows an image preview of the captured photo above the confirmation message, read automatically from the submitting form's `photo_data` field (generic — works for both pages without extra wiring, no-ops cleanly for time-out confirms which have no photo).
-- BUG FOUND AND FIXED this session: the calendar page's manual "Time In"/"Time Out" `date` inputs had no default value and are `required`. Since the new flow calls `form.requestSubmit()` from JS (not a real user click on the submit button), the browser's native HTML5 validation silently blocked submission when the date was empty — no error, no confirm modal, nothing visibly happened. Fixed by defaulting both date inputs to `date('Y-m-d')` (today), same as the time inputs already default to now. Confirmed fixed by user in a subsequent session (History button work this session happened on top of a working state).
+- BUG FOUND AND FIXED this session: the calendar page's manual "Time In"/"Time Out" `date` inputs had no default value and are `required`. Since the new flow calls `form.requestSubmit()` from JS (not a real user click on the submit button), the browser's native HTML5 validation silently blocked submission when the date was empty — no error, no confirm modal, nothing visibly happened. Fixed by defaulting both date inputs to `date('Y-m-d')` (today), same as the time inputs already default to now. Confirmed fixed by user in a subsequent session.
 - OVERALL STATUS: entry page (`timesheet/entry/index.php`) time-in flow confirmed working by user. Calendar page (`timesheet/index.php`) inline manual Time In confirmed fixed. Time Out flow (either page) not explicitly confirmed working yet. Image preview in confirm modal not yet confirmed by user.
 
-PRIOR SESSION — DONE: clock-in/out block (POST handler + pill UI + `$clockError`/`$clockState`/`$todayEntry`) fully removed from `home/index.php`, both roles. RESOLVED — no dedicated clock page needed: `timesheet/entry/index.php` was WRONGLY flagged in this file as a "dead placeholder" (Known Bug #1) — it is NOT a placeholder, it's a fully built manual time-in/time-out + approve/reject page, reachable via `timesheet/index.php` calendar grid. That page is now the only clock mechanism for both roles (admin has no clock-in at all, by design — admin isn't a driver). Known Bug #1 below is STALE/WRONG and should be disregarded/removed. `str_replace` tool failed again on `home/index.php` (same File-not-found issue noted previously) — used `write_file` full overwrite per the established workaround. `clock_records` table and `home/clock-in/index.php` are now unambiguously dead (nothing writes to either) — still not deleted, still awaiting explicit go-ahead. Month summary, payroll history, admin invite link on `home/index.php` untouched and unaffected. NOT tested by user yet: page loads/renders with clock block gone, `timesheet/entry/` still fully functional as sole clock path.
+PRIOR SESSION — DONE: clock-in/out block (POST handler + pill UI + `$clockError`/`$clockState`/`$todayEntry`) fully removed from `home/index.php`, both roles. RESOLVED — no dedicated clock page needed: `timesheet/entry/index.php` is not a placeholder, it's a fully built manual time-in/time-out + approve/reject page, reachable via `timesheet/index.php` calendar grid. That page is the only clock mechanism for both roles (admin has no clock-in at all, by design — admin isn't a driver). `clock_records` table and `home/clock-in/index.php` are unambiguously dead (nothing writes to either) — still not deleted, still awaiting explicit go-ahead. Month summary, payroll history, admin invite link on `home/index.php` untouched and unaffected. NOT tested by user yet: page loads/renders with clock block gone, `timesheet/entry/` still fully functional as sole clock path.
 
-PRIOR SESSION — Employee invite/create flow built (was fully missing, flagged as gap #3 below):
+PRIOR SESSION — Employee invite/create flow built:
 
 - `home/invite/index.php` REBUILT (was placeholder). Admin-only (`requireAdmin()`). Direct-create, not token-based — no email/SMTP capability exists anywhere in this system, so a real invite-link flow was pointless right now. Form: name, email, temp password (plaintext input, min 8 chars, admin sees/sets it), license_number, license_expiry, hire_date, status. On submit: inserts into `users` (role='employee', password_hash()) AND `employee_profiles` in one transaction (both created together, not deferred to first edit). Duplicate email relies on the DB-level UNIQUE constraint on `users.email` (schema.sql) caught via PDOException, not a pre-check-then-insert (more/employees/index.php uses pre-check instead — inconsistent pattern between the two pages, flagged, not unified). On success shows the temp password once back to the admin (no other way to deliver it — share out-of-band).
 - `more/employees/index.php` — added "+ Invite Employee" button above the employee table, links to `/home/invite/`.
 - `invites` table still NOT created — this flow doesn't use it, deliberately. If a real token/email invite flow is ever wanted, that's still fully unbuilt.
 - NOT tested by user yet: full create flow (users + employee_profiles insert together), duplicate-email rejection, temp password login working for the new account.
-- Gap #3 from Known Bugs ("no employee account creation flow") — now CLOSED pending user testing.
+- Self-signup (this session, see top) is now a second, parallel account-creation path alongside this admin-direct-create one. Self-signup lands `pending`, invite lands `active` by default — deliberately different trust levels.
 
-PRIOR SESSION — Employee Management CRUD built (was fully missing, flagged in DoEmploy gap):
+PRIOR SESSION — Employee Management CRUD built:
 
-- New table `employee_profiles` (migration `010_employee_profiles.sql`, RUN by user, confirmed live): user_id (FK, unique), phone, address, license_number, license_expiry, hire_date, status enum(active/inactive), updated_at. Split from `users` on purpose — `users` also holds admin accounts, none of these fields apply to admin.
-- Field ownership split, deliberate: `name`/`email`/password stay self-editable by anyone (own account) via `more/profile/index.php`. `phone`/`address` are self-editable (contact info). `license_number`/`license_expiry`/`hire_date`/`status` are ADMIN-ONLY edit via `more/employees/index.php` — these are compliance/identity fields for a trucking company (license expiry matters for driver legality), letting employees self-edit them would let payroll/compliance records get silently altered. User initially asked for full employee self-edit; pushed back on this specifically for license/hire/status fields, user did not object.
+- New table `employee_profiles` (migration `010_employee_profiles.sql`, RUN by user, confirmed live): user_id (FK, unique), phone, address, license_number, license_expiry, hire_date, status enum, updated_at. Split from `users` on purpose — `users` also holds admin accounts, none of these fields apply to admin.
+- Field ownership split, deliberate: `name`/`email`/password stay self-editable by anyone (own account) via `more/profile/index.php`. `phone`/`address` are self-editable (contact info). `license_number`/`license_expiry`/`hire_date`/`status` are ADMIN-ONLY edit via `more/employees/index.php` — these are compliance/identity fields for a trucking company (license expiry matters for driver legality), letting employees self-edit them would let payroll/compliance records get silently altered.
 - `more/profile/index.php` REBUILT (was a placeholder): self-service, both roles. Edit name/email/phone/address/password (password optional, blank = unchanged, min 8 chars enforced). Read-only "Employment Details" block shows license/hire_date/status with a note to contact HR/admin to change.
-- `more/employees/index.php` NEW, admin-only (`requireAdmin()`). Lists all `role='employee'` users LEFT JOINed with `employee_profiles` (phone, license, hire_date, status shown in table, handles employees with no profile row yet via LEFT JOIN + null coalescing). `?edit={id}` shows an edit form for that employee: name, email, license_number, license_expiry, hire_date, status. Validates employee exists + role=employee before allowing edit (can't edit an admin account through this form). Upserts into `employee_profiles` (insert if no row exists yet, update otherwise).
-- Nav: `more/index.php` — added "Employees" link, wrapped in `if (role === 'admin')`, sits between Profile Settings and Privacy Policy. Per user's explicit direction, this lives inside the More tab rather than as a new bottom-nav tab (avoiding a 6th tab on mobile).
-- NOT tested by user yet: creating a new employee's profile row via the edit form (upsert path), editing an existing one, self-profile edit including password change, LEFT JOIN rendering correctly for the seeded employee1@trucking.com account (which has no employee_profiles row yet — should show blank/— fields, not error).
-- Test employee account exists: `employee1@trucking.com` / `employee123@` (seed_employee.sql run by user). Use this to test both `more/profile/` self-edit and confirm `more/employees/` list+edit works against it from the admin side.
-- No employee CREATE (invite/signup) flow exists yet — `more/employees/index.php` only edits existing `role='employee'` users. Employee accounts still only get created via direct SQL insert (see `database/seed_employee.sql` pattern) or eventually via `home/invite/index.php` (still an unbuilt placeholder). Not in scope this session.
-- TOOLING NOTE: `str_replace` tool returned "File not found" for both `SYSTEM.md` and `more/index.php` in this session despite `read_multiple_files` and `write_file` on the same exact paths working fine. Root cause unclear (possibly a path-normalization mismatch specific to str_replace). Workaround used both times: read full file content, then `write_file` a full overwrite instead of a targeted diff. If str_replace keeps failing on this project going forward, default to write_file overwrites and be careful to re-read the file fresh immediately before to avoid clobbering concurrent changes.
+- `more/employees/index.php`: admin-only (`requireAdmin()`). Lists all `role='employee'` users LEFT JOINed with `employee_profiles` (phone, license, hire_date, status shown in table). `?edit={id}` shows an edit form for that employee. Upserts into `employee_profiles` (insert if no row exists yet, update otherwise). This session added the Pending Approvals section above the main table (see top).
+- Nav: `more/index.php` — "Employees" link, wrapped in `if (role === 'admin')`, sits between Profile Settings and Privacy Policy. Lives inside More tab per user direction, not a new bottom-nav tab.
+- Test employee account exists: `employee1@trucking.com` / `employee123@` (seed_employee.sql run by user, local only — not yet confirmed present on live DB import).
 
 PRIOR SESSION — `home/index.php` rebuilt from fake static placeholders to real data:
 
-- Clock-in/out: now writes real rows to `timesheet_entries` (time_in on clock-in POST, time_out on clock-out POST) for today's date, user_id from session. Pill shows real state: Not Clocked-In / Clocked-In since HH:MM / Done for today (range). DECISION: `clock_records` table stays UNUSED/dead — payroll and timesheet logic only ever read `timesheet_entries`, so a second live clock-punch table would be a disconnected source of truth. Flagged as dead schema, not deleted, pending explicit decision to drop it.
-- Timesheet summary card: real query against `timesheet_entries` for current month. Regular/OT hours computed with same >8h/day split used in `payroll/index.php`. "Not Clocked-In" counter removed, replaced with "Days Present" (distinct dates with an entry this month).
-- Days Absent: counts weekdays (Mon-Fri) in month-to-date with no entry row. KNOWN GAP: no holiday calendar exists, will overcount on PH holidays — flagged, not fixed.
-- Paid Leave / Unpaid Leave: no leave table exists anywhere in the schema. Left as "Not tracked" labels instead of fabricating 0.00h. Needs a real leave table before these can show real numbers (see DoEmploy gap section — Leave Management fully unstarted).
-- Payroll block: fake hardcoded SVG sparkline (not connected to any query) removed. Replaced with real list of the logged-in user's last 6 `payroll_runs` rows (period, net_pay, draft/finalized status).
-- NOT tested by user yet: clock-in button creates row, clock-out closes it, double clock-in/out blocked, days-absent count sane on a fresh month.
-- `home/clock-in/index.php` (separate placeholder page) now orphaned — clock in/out happens inline via POST on `home/index.php` itself, pill no longer links out to it. Not deleted. Should confirm nothing else links to `/home/clock-in/`; if confirmed unused, mark for deletion.
-- `home/overview/index.php` still fully fake ("No data"/"--" cards) — not touched this session, still open.
-- `timesheet/entry/index.php` still a dead placeholder linked from every day in the timesheet grid — not touched this session, still open, known bug.
+- Clock-in/out: now writes real rows to `timesheet_entries` for today's date, user_id from session. DECISION: `clock_records` table stays UNUSED/dead — payroll and timesheet logic only ever read `timesheet_entries`.
+- Timesheet summary card: real query against `timesheet_entries` for current month. Regular/OT hours computed with same >8h/day split used in `payroll/index.php`. "Days Present" = distinct dates with an entry this month.
+- Days Absent: counts weekdays (Mon-Fri) in month-to-date with no entry row. KNOWN GAP: no holiday calendar exists, will overcount on PH holidays.
+- Paid Leave / Unpaid Leave: no leave table exists anywhere in the schema. Left as "Not tracked" labels.
+- Payroll block: real list of the logged-in user's last 6 `payroll_runs` rows (period, net_pay, draft/finalized status).
+- `home/overview/index.php` still fully fake ("No data"/"--" cards) — untouched, still open.
 
-EARLIER SESSION — approval workflow correction:
-CORRECTION TO PRIOR HANDOFF: an earlier note claimed the timesheet approval workflow (review screen, `timesheet_approvals` table) was fully "DONE." That was false — `timesheet/review/index.php` did not exist on disk (empty folder) despite being referenced by a working "Review Period" link on timesheet/index.php, and migrations `008_deductions.sql`/`009_timesheet_approvals.sql` were never saved as files. Recreated both migration files that session to match live schema. Lesson: "DONE" in this file must mean confirmed on disk AND tested, not just described as done.
+TOOLING NOTE (recurring across sessions): the Filesystem edit_file/str_replace tool has repeatedly returned "File not found" on this project despite `read_multiple_files`/`write_file` working fine on the identical path. Root cause unclear. Standing workaround: default to `write_file` full overwrites for this project, always re-read the file fresh immediately before editing to avoid clobbering concurrent changes.
 
 NOT YET DONE / NOT YET TESTED END-TO-END BY USER:
 
 - Full approval→payroll flow (reject an entry → approve period → confirm timesheet_approvals row → run payroll → confirm ONLY approved employee gets a payroll_runs row → view deductions modal renders clean → re-run same period confirms duplicate-skip still works) has NOT been walked through end-to-end.
 - Known unverified edge case: `payroll/index.php`'s deductions-modal JSON payload uses `onclick='...'` with single quotes; `json_encode(..., ENT_QUOTES)` should escape embedded quotes in employee names safely, but untested against a real name with an apostrophe/quote.
-- Employee Management CRUD — untested, see above.
-- home/index.php real-data rebuild — untested, see above.
-- User flagged the full DoEmploy feature list as scope this system is modeled after — most of it still not planned/started (see DoEmploy comparison note below). Employee Management CRUD closes ONE item on that list; rest remain open.
+- Employee Management CRUD — untested.
+- home/index.php real-data rebuild — untested.
 - QR clock-in: still deferred, untouched.
 - Time Out flow confirmation (biometric rework) and confirm-modal image preview — not yet confirmed by user.
-- Soft-delete / reject-UI-removal (this session, see above) — not yet tested by user.
-- Admin-can-time-in-as-employee bug (this session, see above) — fix planned, not yet coded.
+- Soft-delete / reject-UI-removal — not yet tested by user.
+- Admin-can-time-in-as-employee fix — CODE DONE, not yet tested by user.
+- Self-signup + approval flow — CODE DONE, migration not run, not yet tested (this session, see top).
+- Live deployment (InfinityFree) — landing page + login fixes applied, not yet fully walked end-to-end by user beyond initial 404/DB-connection fixes.
 
-NEXT PRIORITY: not decided — options: (a) finish coding + test the admin-cannot-time-in fix (in progress this session), (b) test soft-delete + reject-UI-removal end-to-end, (c) test Employee Management CRUD end-to-end (both self-profile edit and admin employee edit), (d) test home/index.php clock-in/out + summary changes end-to-end, (e) walk full approval→payroll test end-to-end, (f) scope more DoEmploy features, (g) check IZNAHANYACHAY paper's Statement of the Problem / Objectives against actual system coverage (open item, user raised this, not yet actioned).
+NEXT PRIORITY: not decided — options: (a) run migration 013 (local + live) and test self-signup/approval flow (just built), (b) test admin-cannot-time-in fix, (c) test soft-delete + reject-UI-removal, (d) test Employee Management CRUD end-to-end, (e) test home/index.php clock-in/out + summary changes, (f) walk full approval→payroll test end-to-end, (g) scope more DoEmploy features, (h) check IZNAHANYACHAY paper's Statement of the Problem / Objectives against actual system coverage, (i) confirm live DB has seed data (admin/employee test accounts) after import.
 
 ## DoEmploy Feature Gap (noted, partially actioned)
 
-User shared full DoEmploy feature list. Comparing against this system's actual scope: Employee Management CRUD is now ✅ PARTIAL (admin can view/edit any employee's record — name, email, phone, address, license, hire date, status; CANNOT create new employee accounts yet, no invite/signup flow wired). Still entirely missing: Shift Management, Leave Management (request/approve/reject/cancel, balance, history), Break In/Out, Employee document upload, Benefits tracking (PTO/vacation/sick as first-class features), Bonuses/Allowances as payroll line items (distinct from existing deductions), Reports section (any kind, no PDF/Excel export), Notifications, Company Settings (payroll settings, attendance rules, leave rules, tax settings, holiday management, role/permission management — current gov't contribution rates are hardcoded constants in payroll/index.php, not configurable), Email Verification, Forgot Password. Partially covered but thinner: Dashboard (home/index.php now has real clock-in + timesheet summary + payroll history; home/overview/index.php still static placeholders), Payroll (has salary/OT/deductions calc, no bonuses/allowances/payslip PDF export/history export). Still a large scope gap overall — flagged for user to decide priority.
+User shared full DoEmploy feature list. Comparing against this system's actual scope: Employee Management CRUD is ✅ PARTIAL (admin can view/edit any employee's record; direct-create via invite AND self-signup-with-approval both now exist). Still entirely missing: Shift Management, Leave Management, Break In/Out, Employee document upload, Benefits tracking, Bonuses/Allowances as payroll line items, Reports section, Notifications, Company Settings (contribution rates hardcoded, not configurable), Email Verification, Forgot Password. Partially covered but thinner: Dashboard, Payroll (no bonuses/allowances/payslip PDF export). Still a large scope gap overall — flagged for user to decide priority.
 
 ## Global Status
 
-- DB name: iznahanyachay_trucking
-- DB connection: ✅ done — `includes/config.php` has DB_HOST/DB_NAME/DB_USER/DB_PASS (root, no password) + getDB() PDO singleton
+- DB name: iznahanyachay_trucking (local); if0_42596519_iznahanyachay_trucking (live, InfinityFree)
+- DB connection: ✅ done — `includes/config.php` has DB_HOST/DB_NAME/DB_USER/DB_PASS + getDB() PDO singleton. Local and live values differ (see DEPLOYMENT note at top).
 - Schema: 🟡 in progress — see Suggested DB Tables below for full live table list.
-- Seed data: ✅ `database/seed_admin.sql` (admin@trucking.com / admin123@, role=admin), `database/seed_employee.sql` (employee1@trucking.com / employee123@, role=employee) — both run, both live.
-- Auth/session/role guard: ✅ `includes/auth.php` (requireLogin, requireAdmin, attemptLogin, logout). `login/index.php` wired to real DB check + role-based redirect.
-- `home/index.php`: ✅ requireLogin() applied. Real clock-in/out (writes timesheet_entries), real month timesheet summary, real payroll_runs history list. NOT tested end-to-end by user.
-- `more/profile/index.php`: ✅ Self-service profile edit (name/email/phone/address/password), both roles. Read-only employment details block (license/hire_date/status).
-- `more/employees/index.php`: ✅ Admin-only roster + edit any employee's record (name/email/license/hire_date/status). NOT tested by user.
-- `includes/topbar.php`: ✅ optional `$topbarExtra` slot added, backward compatible.
-- `timesheet/index.php`: ✅ History button now rendered via `$topbarExtra` slot (employee-only). Confirmed working. ⚠️ KNOWN BUG: admin can Time In/Time Out as the selected employee via the day-click into `timesheet/entry/` — fix planned, not yet coded (see SESSION HANDOFF top).
-- `timesheet/entry/index.php`: 🟡 ⚠️ Soft-delete (admin, pending-only) + reject-UI-removal DONE but NOT tested; migration 012 run. Admin Time-In/Time-Out access is a KNOWN BUG, fix planned not yet coded (see SESSION HANDOFF top).
-- `timesheet/log/index.php`: ✅ redesigned — one container per date, Time In left (with photo)/Time Out right (no photo), same row. Confirmed working.
-- Schema migrations: `002_clock_records.sql` (UNUSED/dead — see note below), `003_timesheet_entries.sql`, `004_trips.sql`, `005_payroll_runs.sql`, `006_payslips.sql`, `007_timesheet_status.sql`, `008_deductions.sql`, `009_timesheet_approvals.sql`, `010_employee_profiles.sql`, `011_timesheet_biometrics.sql`, `012_timesheet_soft_delete.sql` — all confirmed live in DB. `invites` table still not started.
-- `clock_records` table exists in DB but is UNUSED/dead — nothing reads or writes it, all clock/timesheet logic goes through `timesheet_entries` instead.
-- Payroll calc rules: rate_per_hour 100, ot_rate_per_hour 110 (base +10%), OT = hours beyond 8/day. Trip incentive: flat 50/trip via `trips` table (still placeholder, no source doc had real trip incentive rules). Deductions: real 2026 government contribution tables (see below). IZNAHANYACHAY paper checked — contains no usable payroll formulas.
-- Real government deduction tables (2026, halved for semi-monthly 15/30 cutoffs): SSS — 15% of Monthly Salary Credit, employee pays 5%, MSC bracketed in ₱500 steps ₱5,000-₱35,000 (per-cutoff employee share ₱125-₱875). PhilHealth — 5% of basic salary, employee pays 2.5%, floor ₱10,000/ceiling ₱100,000 monthly (per-cutoff share ₱125-₱1,250). Pag-IBIG — employee pays 1% if monthly salary ≤₱1,500 else 2%, capped at ₱10,000 monthly (per-cutoff max ₱100). Implemented as `calculateSSS()`, `calculatePhilHealth()`, `calculatePagibig()` in payroll/index.php.
-- `deductions` table: transaction-log, one row per SSS/PhilHealth/Pag-IBIG per payroll_run. "View" button per payroll run row in payroll/index.php opens a modal with line items + basis notes.
-- Payroll: ✅ working end-to-end, role-branched. `payroll/index.php` single page — admin sees Run Payroll form + all runs + Finalize; employee sees own runs only, no Run Payroll/Finalize, "Draft" badge until finalized. `payroll/run/index.php` deprecated, redirects to `/payroll/`.
-- Timesheet dark/light bug: ✅ fixed on `timesheet/index.php`.
-- Finalize action: ✅ done — draft → payslips snapshot + status flip, locked after.
-- Reusable confirm modal: ✅ `includes/confirm-modal.php`, wired on Run Payroll and Finalize forms, extended with image preview for biometric captures.
-- Run Payroll: employee list comes from JOIN against `timesheet_approvals` for exact period. Duplicate-run skip per user_id+period_start+period_end.
+- Seed data: ✅ locally — `database/seed_admin.sql` (admin@trucking.com / admin123@, role=admin), `database/seed_employee.sql` (employee1@trucking.com / employee123@, role=employee). Exported and imported into live DB — presence on live not yet independently confirmed by user.
+- Auth/session/role guard: ✅ `includes/auth.php` (requireLogin, requireAdmin, attemptLogin w/ pending-status check, logout). `login/index.php` wired to real DB check + role-based redirect + pending-specific error message.
+- `home/index.php`: ✅ requireLogin() applied. Real clock-in/out, real month timesheet summary, real payroll_runs history list. NOT tested end-to-end by user.
+- `more/profile/index.php`: ✅ Self-service profile edit. Read-only employment details block.
+- `more/employees/index.php`: ✅ Admin-only roster + edit + new Pending Approvals section (approve/reject self-signups). NOT tested by user.
+- `includes/topbar.php`: ✅ optional `$topbarExtra` slot, backward compatible.
+- `timesheet/index.php`: ✅ History button via `$topbarExtra` slot (employee-only). Confirmed working. Admin-time-in-as-employee bug — fix coded, not yet tested.
+- `timesheet/entry/index.php`: 🟡 Soft-delete + reject-UI-removal DONE but NOT tested; migration 012 run. Admin Time-In/Time-Out access bug — CODE DONE (server-side block + read-only admin UI), NOT YET TESTED.
+- `timesheet/log/index.php`: ✅ redesigned, confirmed working.
+- `signup/index.php`: ✅ real self-signup form, creates pending employee account. NOT tested — migration 013 not run yet.
+- Schema migrations: `002_clock_records.sql` (UNUSED/dead), `003_timesheet_entries.sql`, `004_trips.sql`, `005_payroll_runs.sql`, `006_payslips.sql`, `007_timesheet_status.sql`, `008_deductions.sql`, `009_timesheet_approvals.sql`, `010_employee_profiles.sql`, `011_timesheet_biometrics.sql`, `012_timesheet_soft_delete.sql` — confirmed live in DB (local; live DB import should include these). `013_employee_status_pending.sql` — NEW this session, NOT YET RUN anywhere. `invites` table still not started.
+- `clock_records` table exists in DB but is UNUSED/dead.
+- Payroll calc rules: rate_per_hour 100, ot_rate_per_hour 110 (base +10%), OT = hours beyond 8/day. Trip incentive: flat 50/trip via `trips` table (placeholder). Deductions: real 2026 government contribution tables.
+- Real government deduction tables (2026, halved for semi-monthly 15/30 cutoffs): SSS — 15% of Monthly Salary Credit, employee pays 5%, MSC bracketed in ₱500 steps ₱5,000-₱35,000. PhilHealth — 5% of basic salary, employee pays 2.5%, floor ₱10,000/ceiling ₱100,000 monthly. Pag-IBIG — employee pays 1% if monthly salary ≤₱1,500 else 2%, capped at ₱10,000 monthly. Implemented as `calculateSSS()`, `calculatePhilHealth()`, `calculatePagibig()` in payroll/index.php.
+- `deductions` table: transaction-log, one row per SSS/PhilHealth/Pag-IBIG per payroll_run. "View" button per payroll run row opens a modal with line items + basis notes.
+- Payroll: ✅ working end-to-end, role-branched. `payroll/run/index.php` deprecated, redirects to `/payroll/`.
+- Timesheet dark/light bug: ✅ fixed.
+- Finalize action: ✅ done.
+- Reusable confirm modal: ✅ `includes/confirm-modal.php`, wired everywhere including new pending-approve/reject buttons.
+- Run Payroll: employee list from JOIN against `timesheet_approvals` for exact period. Duplicate-run skip per user_id+period_start+period_end.
 - `timesheet/review/index.php`: ✅ admin-only, employee+period picker, per-entry reject (modal), Approve Period bulk-approve + timesheet_approvals insert.
-- Biometric time-in: ✅ `includes/biometric.php` saves captured photo, `time_in_photo` column live. Employee time-in requires photo capture; admin exempt. Time-in lock server-side on both `timesheet/entry/` and `timesheet/index.php`. ⚠️ Admin should not have a time-in path at ALL per this session's fix — currently still does, being removed.
-- NEXT: (1) code + test admin-cannot-time-in fix (in progress). (2) test soft-delete + reject-UI-removal. (3) Employee CRUD untested. (4) home/index.php changes untested. (5) full approval→payroll flow untested end-to-end. (6) QR clock-in deferred. (7) DoEmploy gaps remain (see above). (8) IZNAHANYACHAY paper problem/objective alignment check — open, not yet actioned.
+- Biometric time-in: ✅ `includes/biometric.php` saves captured photo. Employee time-in requires photo capture. Admin has NO time-in/time-out path at all (server-side blocked + no form rendered).
+- Account creation: TWO paths now — (1) admin direct-create via `home/invite/` (lands active), (2) self-signup via `signup/` (lands pending, needs admin approval via `more/employees/`).
+- NEXT: (1) run migration 013 + test signup/approval flow. (2) test admin-cannot-time-in fix. (3) test soft-delete + reject-UI-removal. (4) Employee CRUD untested. (5) home/index.php changes untested. (6) full approval→payroll flow untested end-to-end. (7) QR clock-in deferred. (8) DoEmploy gaps remain. (9) IZNAHANYACHAY paper alignment check — open. (10) confirm live DB seed data present.
 - Helper file: `PROMPT.md` — session-start prompt for new Claude accounts.
 - Reference: IZNAHANYACHAY paper is source of truth for payroll calc rules (checked, no usable formulas found — current rates are real 2026 gov't tables instead), DoEmploy is UX/feature reference only.
 
@@ -136,10 +146,10 @@ User shared full DoEmploy feature list. Comparing against this system's actual s
 ```
 trucking_system/
 ├── index.php                      ✅ Public landing page (static marketing)
-├── login/index.php                🟡 UI only — form does nothing, links straight to /home/
-├── signup/index.php               🟡 UI only — form does nothing, links to /login/
+├── login/index.php                ✅ real auth, pending-account message
+├── signup/index.php               ✅ real self-signup, creates pending employee account, NOT tested (migration 013 pending)
 ├── includes/
-│   ├── config.php                 ✅ BASE_PATH + DB connection (getDB() PDO singleton)
+│   ├── config.php                 ✅ BASE_PATH + DB connection. LOCAL vs LIVE values differ, see DEPLOYMENT note.
 │   ├── head.php                   ✅ done
 │   ├── foot.php                   ✅ done
 │   ├── topbar.php                 ✅ done — optional $topbarExtra slot added
@@ -147,16 +157,17 @@ trucking_system/
 │   ├── bottom-nav.php             ✅ done — 5 tabs: Home, Timesheet, Overview, Payroll, More
 │   ├── confirm-modal.php          ✅ done — includes biometric photo preview
 │   ├── biometric.php              ✅ done — saveBiometricPhoto()
+│   ├── auth.php                   ✅ done — attemptLogin() now returns pending-vs-invalid fail reason
 │   └── placeholder.php            ✅ done
 ├── home/
 │   ├── index.php                  ✅ real clock-in/out, real timesheet summary, real payroll history. NOT tested end-to-end.
 │   ├── overview/index.php         🟡 UI only — cards show static "No data"/"--"
 │   ├── clock-in/index.php         🔴 orphaned placeholder — no longer linked, candidate for deletion
-│   └── invite/index.php           ✅ admin direct-create employee account (users + employee_profiles). NOT tested by user.
+│   └── invite/index.php           ✅ admin direct-create employee account (lands active). NOT tested by user.
 ├── timesheet/
-│   ├── index.php                  ✅ role-branched, manual entry + records, History button (employee) via topbar slot, links to review screen (admin). ⚠️ admin day-click still routes into a page where admin can time in — fix in progress.
-│   ├── entry/index.php            🟡 ⚠️ per-date view, approve/reject/delete built; soft-delete done not tested; admin time-in/out access is a known bug, fix in progress (see SESSION HANDOFF top)
-│   ├── log/index.php              ✅ employee History page — monthly log, one container per date, Time In left/Time Out right. Confirmed working.
+│   ├── index.php                  ✅ role-branched, manual entry + records, History button (employee) via topbar slot, links to review screen (admin).
+│   ├── entry/index.php            🟡 per-date view, approve/reject/delete built; soft-delete done not tested; admin time-in/out bug fix coded, not tested.
+│   ├── log/index.php              ✅ employee History page. Confirmed working.
 │   └── review/index.php           ✅ admin-only approval screen
 ├── payroll/
 │   ├── index.php                  ✅ role-branched, Run Payroll, Finalize, deductions view modal
@@ -164,7 +175,7 @@ trucking_system/
 ├── more/
 │   ├── index.php                  ✅ real logout POST form, Employees link (admin-only), Profile/Privacy/About links
 │   ├── profile/index.php          ✅ self-service edit, NOT tested
-│   ├── employees/index.php        ✅ admin roster + edit, NOT tested
+│   ├── employees/index.php        ✅ admin roster + edit + Pending Approvals section, NOT tested
 │   ├── privacy-policy/index.php   🔴 placeholder, needs policy text written
 │   └── about/index.php            🔴 placeholder, needs version/info content
 └── assets/
@@ -177,11 +188,10 @@ Note: `admin/` tree no longer exists — fully merged into single role-branched 
 
 ## Known Bugs (not yet fixed)
 
-1. STALE ENTRY, DISREGARD — was: "`timesheet/entry/index.php` dead placeholder." Corrected: it is fully built (time in/out form + approve/reject/delete), not a placeholder. No action needed here.
-2. `home/clock-in/index.php` — orphaned, and now doubly so since `home/index.php` clock block was removed entirely. Dead code, should be deleted.
-3. CLOSED (pending test) — `home/invite/index.php` now creates employee accounts directly (users + employee_profiles). Was: no creation flow existed.
-4. Minor inconsistency: `home/invite/index.php` catches duplicate-email via DB unique constraint + PDOException; `more/employees/index.php` pre-checks email uniqueness in PHP before updating. Two different patterns for the same guarantee — not unified, not a functional bug.
-5. ACTIVE, FIX IN PROGRESS — admin can Time In / Time Out as the currently-selected employee on `timesheet/entry/index.php` (reached via `timesheet/index.php` employee dropdown + day click). Admin role must be view/approve/reject/delete only. See SESSION HANDOFF at top for plan.
+1. `home/clock-in/index.php` — orphaned, dead code, should be deleted.
+2. Minor inconsistency: `home/invite/index.php` catches duplicate-email via DB unique constraint + PDOException; `more/employees/index.php` pre-checks email uniqueness in PHP before updating. Two different patterns for the same guarantee — not unified, not a functional bug.
+3. CLOSED (pending test) — admin could Time In / Time Out as the currently-selected employee on `timesheet/entry/index.php`. Fixed: server-side block + dedicated read-only admin UI branch. Not yet tested by user.
+4. CLOSED (pending migration + test) — no self-signup path existed; signup page was pure UI. Fixed: real signup + pending-approval gate. Migration 013 must be run first.
 
 ## Navigation Model
 
@@ -197,15 +207,15 @@ System is modeled after DoEmploy (payroll/attendance app): automated payroll cal
 
 ## Suggested DB Tables (status)
 
-`users` ✅, `employee_profiles` ✅ (phone, address, license_number, license_expiry, hire_date, status), `clock_records` ✅ exists but UNUSED/dead, `timesheet_entries` ✅ (manual + QR type column, QR path unused; `time_in_photo` added for biometric capture; `deleted_at` added for soft-delete), `payroll_runs` ✅, `payslips` ✅, `deductions` ✅, `timesheet_approvals` ✅, `trips` ✅, `invites` 🔴 not started, `performance_metrics` 🔴 not started, leave/PTO table 🔴 not started (needed for Paid/Unpaid Leave to show real data on home/index.php).
+`users` ✅, `employee_profiles` ✅ (phone, address, license_number, license_expiry, hire_date, status — status now `pending|active|inactive` as of migration 013), `clock_records` ✅ exists but UNUSED/dead, `timesheet_entries` ✅ (manual + QR type column, QR path unused; `time_in_photo` added for biometric capture; `deleted_at` added for soft-delete), `payroll_runs` ✅, `payslips` ✅, `deductions` ✅, `timesheet_approvals` ✅, `trips` ✅, `invites` 🔴 not started, `performance_metrics` 🔴 not started, leave/PTO table 🔴 not started.
 
 ## DECISION MADE (historical): Kill admin/ tree, single pages with role branching
 
-CLOSED, historical record. `admin/` directory fully removed. `home/index.php`, `timesheet/index.php`, `payroll/index.php`, `more/index.php` are the only copies, each branching on `$_SESSION['user']['role']` only where behavior actually differs. `_deleted_admin_*` folders were left on disk as backups (no delete tool via Filesystem MCP, only move) — safe to hard-delete via OS whenever.
+CLOSED, historical record. `admin/` directory fully removed. `home/index.php`, `timesheet/index.php`, `payroll/index.php`, `more/index.php` are the only copies, each branching on `$_SESSION['user']['role']` only where behavior actually differs. `_deleted_admin_*` folders were left on disk as backups — safe to hard-delete via OS whenever.
 
 ## PLANNED: Timesheet approval workflow (manual entries only — GPS/QR deferred)
 
-DONE. `timesheet_entries` has `status` ENUM('pending','approved','rejected') DEFAULT 'pending' + `rejection_reason` nullable + `deleted_at` nullable (soft-delete, pending-only, admin-only). Approval is per-period via `timesheet/review/index.php`. `timesheet_approvals` is the append-only audit trail. `payroll/index.php` hours query filters `AND status = 'approved'`, confirmed in place. Reject has no UI trigger (DB-side only, dead code path).
+DONE. `timesheet_entries` has `status` ENUM('pending','approved','rejected') DEFAULT 'pending' + `rejection_reason` nullable + `deleted_at` nullable (soft-delete, pending-only, admin-only). Approval is per-period via `timesheet/review/index.php`. `timesheet_approvals` is the append-only audit trail. `payroll/index.php` hours query filters `AND status = 'approved'`. Reject has no UI trigger (DB-side only, dead code path).
 
 GPS/QR clock-in: deferred. When built, should NOT default to 'pending' like manual entries — auto-verified sources should fast-track/auto-approve.
 
@@ -215,4 +225,4 @@ DONE. Run Payroll period input is a dropdown of distinct (period_start, period_e
 
 ## DONE: Employee Management CRUD
 
-See SESSION HANDOFF at top for full detail. Summary: `employee_profiles` table added, admin-only edit via `more/employees/index.php`, self-service edit (contact info + credentials only, not compliance fields) via `more/profile/index.php`. Lives inside More tab per user direction. Employee account CREATION still not built — that's the `home/invite/` gap, separate from this.
+`employee_profiles` table added, admin-only edit via `more/employees/index.php`, self-service edit (contact info + credentials only, not compliance fields) via `more/profile/index.php`. Lives inside More tab per user direction. Two account-creation paths now exist: admin direct-create (`home/invite/`, lands active) and self-signup (`signup/`, lands pending, needs admin approval — see THIS SESSION at top).

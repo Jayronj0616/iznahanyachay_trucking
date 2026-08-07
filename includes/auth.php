@@ -24,13 +24,24 @@ function requireAdmin(): void {
     }
 }
 
-function attemptLogin(string $email, string $password): bool {
+function attemptLogin(string $email, string $password, ?string &$failReason = null): bool {
     $stmt = getDB()->prepare('SELECT id, name, email, password, role FROM users WHERE email = ?');
     $stmt->execute([$email]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$user || !password_verify($password, $user['password'])) {
+        $failReason = 'invalid';
         return false;
+    }
+
+    if ($user['role'] === 'employee') {
+        $stmt = getDB()->prepare('SELECT status FROM employee_profiles WHERE user_id = ?');
+        $stmt->execute([$user['id']]);
+        $status = $stmt->fetchColumn();
+        if ($status === 'pending') {
+            $failReason = 'pending';
+            return false;
+        }
     }
 
     $_SESSION['user'] = [

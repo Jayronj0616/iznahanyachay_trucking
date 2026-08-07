@@ -9,11 +9,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($email === '' || $password === '') {
         $error = 'Please enter email and password.';
-    } elseif (attemptLogin($email, $password)) {
-        header('Location: ' . BASE_PATH . '/home/');
-        exit;
     } else {
-        $error = 'Invalid email or password.';
+        $failReason = null;
+        if (attemptLogin($email, $password, $failReason)) {
+            header('Location: ' . BASE_PATH . '/home/');
+            exit;
+        } elseif ($failReason === 'pending') {
+            $error = 'Your account is awaiting admin approval.';
+        } else {
+            $error = 'Invalid email or password.';
+        }
     }
 }
 

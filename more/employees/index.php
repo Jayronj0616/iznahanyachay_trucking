@@ -16,7 +16,37 @@ $success = null;
 
 $editId = isset($_GET['edit']) ? (int) $_GET['edit'] : 0;
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    $targetId = (int) ($_POST['target_id'] ?? 0);
+    $action = $_POST['action'];
+
+    $stmt = $db->prepare(
+        "SELECT u.id FROM users u JOIN employee_profiles ep ON ep.user_id = u.id
+         WHERE u.id = ? AND u.role = 'employee' AND ep.status = 'pending'"
+    );
+    $stmt->execute([$targetId]);
+
+    if (!$stmt->fetch()) {
+        $error = 'That signup request no longer exists.';
+    } elseif ($action === 'approve') {
+        $stmt = $db->prepare("UPDATE employee_profiles SET status = 'active' WHERE user_id = ?");
+        $stmt->execute([$targetId]);
+        $success = 'Account approved. The employee can now log in.';
+    } elseif ($action === 'reject') {
+        $db->beginTransaction();
+        try {
+            $stmt = $db->prepare('DELETE FROM employee_profiles WHERE user_id = ?');
+            $stmt->execute([$targetId]);
+            $stmt = $db->prepare('DELETE FROM users WHERE id = ?');
+            $stmt->execute([$targetId]);
+            $db->commit();
+            $success = 'Signup request rejected and removed.';
+        } catch (PDOException $e) {
+            $db->rollBack();
+            $error = 'Rejection failed: ' . $e->getMessage();
+        }
+    }
+} elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $targetId = (int) ($_POST['user_id'] ?? 0);
     $name = trim($_POST['name'] ?? '');
     $email = trim($_POST['email'] ?? '');
@@ -78,11 +108,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+$pendingSignups = $db->query(
+    "SELECT u.id, u.name, u.email, u.created_at
+     FROM users u
+     JOIN employee_profiles ep ON ep.user_id = u.id
+     WHERE u.role = 'employee' AND ep.status = 'pending'
+     ORDER BY u.id ASC"
+)->fetchAll(PDO::FETCH_ASSOC);
+
 $employees = $db->query(
     "SELECT u.id, u.name, u.email, ep.phone, ep.license_number, ep.license_expiry, ep.hire_date, ep.status
      FROM users u
      LEFT JOIN employee_profiles ep ON ep.user_id = u.id
-     WHERE u.role = 'employee'
+     WHERE u.role = 'employee' AND (ep.status IS NULL OR ep.status != 'pending')
      ORDER BY u.name ASC"
 )->fetchAll(PDO::FETCH_ASSOC);
 
@@ -105,6 +143,34 @@ if ($editId) {
   <?php endif; ?>
   <?php if ($success): ?>
     <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 rounded-xl p-4 text-sm"><?php echo htmlspecialchars($success); ?></div>
+  <?php endif; ?>
+
+  <?php if (!empty($pendingSignups)): ?>
+  <div class="bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-800 rounded-xl p-6">
+    <h2 class="text-gray-900 dark:text-white font-bold mb-4">Pending Approvals (<?php echo count($pendingSignups); ?>)</h2>
+    <div class="space-y-3">
+      <?php foreach ($pendingSignups as $p): ?>
+        <div class="flex items-center justify-between gap-3 bg-white dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-lg px-4 py-3">
+          <div class="min-w-0">
+            <p class="text-gray-900 dark:text-white font-semibold truncate"><?php echo htmlspecialchars($p['name']); ?></p>
+            <p class="text-gray-500 dark:text-gray-400 text-xs truncate"><?php echo htmlspecialchars($p['email']); ?></p>
+          </div>
+          <div class="flex gap-2 shrink-0">
+            <form method="POST" data-confirm="Approve this employee's signup?">
+              <input type="hidden" name="action" value="approve">
+              <input type="hidden" name="target_id" value="<?php echo (int) $p['id']; ?>">
+              <button type="submit" class="bg-brand-green text-white text-xs font-semibold px-3 py-1.5 rounded-full hover:opacity-90 transition">Approve</button>
+            </form>
+            <form method="POST" data-confirm="Reject and permanently remove this signup request?">
+              <input type="hidden" name="action" value="reject">
+              <input type="hidden" name="target_id" value="<?php echo (int) $p['id']; ?>">
+              <button type="submit" class="bg-red-500 text-white text-xs font-semibold px-3 py-1.5 rounded-full hover:opacity-90 transition">Reject</button>
+            </form>
+          </div>
+        </div>
+      <?php endforeach; ?>
+    </div>
+  </div>
   <?php endif; ?>
 
   <?php if ($editingEmployee): ?>
