@@ -46,6 +46,11 @@ if ($selectedUserId) {
     $stmt->execute([$selectedUserId, $monthStart, $monthEnd]);
     $entries = $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
+
+$entriesByDate = [];
+foreach ($entries as $entry) {
+    $entriesByDate[$entry['date']] = $entry;
+}
 ?>
 
 <main class="max-w-3xl mx-auto w-full px-4 pb-32 pt-4 sm:px-6 space-y-6">
@@ -75,9 +80,12 @@ if ($selectedUserId) {
     <div class="divide-y divide-gray-200 dark:divide-surface-border">
       <?php for ($d = 1; $d <= $daysInMonth; $d++):
         $ts = mktime(0, 0, 0, (int) date('n'), $d, (int) date('Y'));
+        $dateStr = date('Y-m-d', $ts);
         $dayAbbr = date('D', $ts);
         $isToday = $d === $today;
-        $entryHref = BASE_PATH . '/timesheet/entry/?date=' . date('Y-m-d', $ts) . ($isAdmin ? '&user_id=' . $selectedUserId : '');
+        $entryHref = BASE_PATH . '/timesheet/entry/?date=' . $dateStr . ($isAdmin ? '&user_id=' . $selectedUserId : '');
+
+        $dayLabel = $isAdmin ? 'Tap to View' : 'Tap to Add';
       ?>
       <a
         <?php echo $isToday ? 'id="today"' : ''; ?>
@@ -87,7 +95,7 @@ if ($selectedUserId) {
         <span class="flex items-center gap-3">
           <span class="text-right w-6 font-semibold"><?php echo $d; ?></span>
           <span class="text-xs <?php echo $isToday ? 'text-white/80' : 'text-gray-400 dark:text-gray-500'; ?> w-10"><?php echo $dayAbbr; ?></span>
-          <span class="text-sm italic <?php echo $isToday ? 'text-white/90' : 'text-gray-400 dark:text-gray-500'; ?>">Tap to Add</span>
+          <span class="text-sm italic <?php echo $isToday ? 'text-white/90' : 'text-gray-400 dark:text-gray-500'; ?>"><?php echo htmlspecialchars($dayLabel); ?></span>
         </span>
         <svg class="w-4 h-4 <?php echo $isToday ? 'text-white' : 'text-gray-400 dark:text-gray-500'; ?>" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M12 5v14M5 12h14"></path>

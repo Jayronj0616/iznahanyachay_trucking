@@ -98,6 +98,27 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['finalize_
         );
         $stmt->execute([$periodStart, $periodEnd]);
         $employees = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Driver/helper pay is trip-commission-only and isn't gated by approved hourly timesheets,
+        // so pull in anyone with a completed trip in this period who wasn't already caught above.
+        $stmt = $db->prepare(
+            "SELECT DISTINCT u.id, u.name FROM users u
+             JOIN employee_profiles ep ON ep.user_id = u.id
+             JOIN trips_new t ON (t.driver_id = u.id OR t.helper_id = u.id)
+             WHERE ep.position IN ('driver', 'helper') AND t.status = 'completed'
+               AND DATE(t.completed_at) BETWEEN ? AND ?"
+        );
+        $stmt->execute([$periodStart, $periodEnd]);
+        $tripEmployees = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $seenIds = array_column($employees, 'id');
+        foreach ($tripEmployees as $te) {
+            if (!in_array($te['id'], $seenIds, true)) {
+                $employees[] = $te;
+                $seenIds[] = $te['id'];
+            }
+        }
+
         $skipped = [];
         $ranFor = [];
 
@@ -115,35 +136,51 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['finalize_
                     continue;
                 }
 
-                $stmt = $db->prepare(
-                    'SELECT time_in, time_out FROM timesheet_entries
-                     WHERE user_id = ? AND date BETWEEN ? AND ? AND time_in IS NOT NULL AND time_out IS NOT NULL AND status = "approved"'
-                );
-                $stmt->execute([$userId, $periodStart, $periodEnd]);
-                $entries = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                $stmt = $db->prepare('SELECT position FROM employee_profiles WHERE user_id = ?');
+                $stmt->execute([$userId]);
+                $position = $stmt->fetchColumn() ?: null;
+                $isDriver = $position === 'driver';
+                $isHelper = $position === 'helper';
 
                 $regularHours = 0.0;
                 $otHours = 0.0;
-                foreach ($entries as $entry) {
-                    $in = strtotime($entry['time_in']);
-                    $out = strtotime($entry['time_out']);
-                    $hours = max(0, ($out - $in) / 3600);
-                    if ($hours > 8) {
-                        $regularHours += 8;
-                        $otHours += $hours - 8;
-                    } else {
-                        $regularHours += $hours;
+                $tripCount = 0;
+                $tripTotal = 0.0;
+
+                if ($isDriver || $isHelper) {
+                    // Trip-commission-only pay: no hourly/OT component for driver or helper.
+                    $column = $isDriver ? 'driver_id' : 'helper_id';
+                    $rate = $isDriver ? 0.15 : 0.08;
+
+                    $stmt = $db->prepare(
+                        "SELECT COUNT(*) AS trip_count, COALESCE(SUM(amount_per_trip), 0) AS trip_sum
+                         FROM trips_new
+                         WHERE $column = ? AND status = 'completed' AND DATE(completed_at) BETWEEN ? AND ?"
+                    );
+                    $stmt->execute([$userId, $periodStart, $periodEnd]);
+                    $tripRow = $stmt->fetch(PDO::FETCH_ASSOC);
+                    $tripCount = (int) $tripRow['trip_count'];
+                    $tripTotal = round((float) $tripRow['trip_sum'] * $rate, 2);
+                } else {
+                    $stmt = $db->prepare(
+                        'SELECT time_in, time_out FROM timesheet_entries
+                         WHERE user_id = ? AND date BETWEEN ? AND ? AND time_in IS NOT NULL AND time_out IS NOT NULL AND status = "approved"'
+                    );
+                    $stmt->execute([$userId, $periodStart, $periodEnd]);
+                    $entries = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+                    foreach ($entries as $entry) {
+                        $in = strtotime($entry['time_in']);
+                        $out = strtotime($entry['time_out']);
+                        $hours = max(0, ($out - $in) / 3600);
+                        if ($hours > 8) {
+                            $regularHours += 8;
+                            $otHours += $hours - 8;
+                        } else {
+                            $regularHours += $hours;
+                        }
                     }
                 }
-
-                $stmt = $db->prepare(
-                    'SELECT COUNT(*) AS trip_count, COALESCE(SUM(incentive_amount), 0) AS trip_total
-                     FROM trips WHERE user_id = ? AND trip_date BETWEEN ? AND ?'
-                );
-                $stmt->execute([$userId, $periodStart, $periodEnd]);
-                $tripRow = $stmt->fetch(PDO::FETCH_ASSOC);
-                $tripCount = (int) $tripRow['trip_count'];
-                $tripTotal = (float) $tripRow['trip_total'];
 
                 $basePay = $regularHours * RATE_PER_HOUR;
                 $otPay = $otHours * OT_RATE_PER_HOUR;
