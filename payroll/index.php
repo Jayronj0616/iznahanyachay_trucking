@@ -293,7 +293,7 @@ if (!empty($runs)) {
         <input type="hidden" name="period_start" value="<?php echo htmlspecialchars($eligiblePeriods[0]['period_start']); ?>">
         <input type="hidden" name="period_end" value="<?php echo htmlspecialchars($eligiblePeriods[0]['period_end']); ?>">
       </div>
-      <button type="submit" class="bg-brand-green text-white font-bold tracking-wide rounded-full px-5 py-2.5 hover:opacity-90 transition">
+      <button type="submit" class="bg-brand-orange text-white font-bold tracking-wide rounded-full px-5 py-2.5 hover:opacity-90 transition">
         RUN PAYROLL
       </button>
     </form>

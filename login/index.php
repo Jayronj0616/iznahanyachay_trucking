@@ -62,11 +62,6 @@ include __DIR__ . '/../includes/head.php';
         LOGIN
       </button>
     </form>
-
-    <p class="mt-6 text-center text-sm text-gray-600 dark:text-gray-300">
-      Don't have an account?
-      <a href="<?php echo BASE_PATH; ?>/signup/" class="font-bold text-gray-900 dark:text-white underline">SIGN UP</a>
-    </p>
   </div>
 </div>
 

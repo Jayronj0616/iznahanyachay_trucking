@@ -74,13 +74,13 @@ $recentRuns = array_reverse($stmt->fetchAll(PDO::FETCH_ASSOC));
   <?php if ($_SESSION['user']['role'] === 'admin'): ?>
   <a href="<?php echo BASE_PATH; ?>/home/invite/" class="flex items-center justify-between bg-white dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-full px-5 py-3 shadow-sm dark:shadow-none">
     <span class="flex items-center gap-2 text-gray-800 dark:text-gray-100 text-sm font-medium">
-      <svg class="w-4 h-4 text-brand-green" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <svg class="w-4 h-4 text-brand-orange" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M7 7h11l-3-3"></path>
         <path d="M17 17H6l3 3"></path>
       </svg>
       Invite your employee
     </span>
-    <span class="w-7 h-7 rounded-full bg-brand-green flex items-center justify-center">
+    <span class="w-7 h-7 rounded-full bg-brand-orange flex items-center justify-center">
       <svg class="w-3.5 h-3.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
         <path d="M5 12h14M13 6l6 6-6 6"></path>
       </svg>
@@ -91,7 +91,7 @@ $recentRuns = array_reverse($stmt->fetchAll(PDO::FETCH_ASSOC));
   <div>
     <div class="flex items-center justify-between mb-3">
       <h2 class="text-lg font-bold text-gray-900 dark:text-white">Timesheet</h2>
-      <span class="text-sm text-brand-green font-medium">
+      <span class="text-sm text-gray-500 dark:text-gray-400 font-medium">
         <?php echo date('j M', strtotime($monthStart)) . ' - ' . date('j M Y', strtotime($monthEnd)); ?>
       </span>
     </div>

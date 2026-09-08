@@ -139,7 +139,7 @@ include __DIR__ . '/../../includes/topbar.php';
 <main class="max-w-2xl mx-auto w-full px-4 pb-32 pt-4 sm:px-6 space-y-6">
 
   <div>
-    <a href="<?php echo BASE_PATH; ?>/timesheet/<?php echo $isAdmin ? '?user_id=' . $userId : ''; ?>" class="text-brand-green text-sm font-semibold">&larr; Back to calendar</a>
+    <a href="<?php echo BASE_PATH; ?>/timesheet/<?php echo $isAdmin ? '?user_id=' . $userId : ''; ?>" class="text-brand-orange text-sm font-semibold">&larr; Back to calendar</a>
   </div>
 
   <h1 class="text-gray-900 dark:text-white font-bold text-lg">
@@ -202,7 +202,7 @@ include __DIR__ . '/../../includes/topbar.php';
 
         <video id="camera-video" autoplay playsinline class="w-full rounded-lg border border-gray-300 dark:border-surface-border hidden"></video>
         <canvas id="camera-canvas" class="hidden"></canvas>
-        <button type="button" id="time-in-trigger" class="block w-full text-center bg-brand-green text-white font-bold rounded-lg px-5 py-3 hover:opacity-90 transition">Time In</button>
+        <button type="button" id="time-in-trigger" class="block w-full text-center bg-brand-orange text-white font-bold rounded-lg px-5 py-3 hover:opacity-90 transition">Time In</button>
         <button type="button" id="camera-capture-btn" class="hidden block w-full text-center bg-brand-orange text-white font-bold rounded-lg px-5 py-3 hover:opacity-90 transition">Capture Photo</button>
         <button type="submit" name="save_time_in" value="1" id="time-in-submit" class="hidden"></button>
       </form>
@@ -259,7 +259,7 @@ include __DIR__ . '/../../includes/topbar.php';
       <?php endif; ?>
       <form method="POST" class="space-y-3" data-confirm="Confirm time out now?">
         <input type="time" disabled value="<?php echo date('H:i'); ?>" style="color-scheme: light;" class="w-full bg-gray-100 dark:bg-surface/50 border border-gray-300 dark:border-surface-border rounded-lg px-4 py-3 text-gray-500 dark:text-gray-400">
-        <button type="submit" name="save_time_out" value="1" class="block w-full text-center bg-brand-green text-white font-bold rounded-lg px-5 py-3 hover:opacity-90 transition">Time Out</button>
+        <button type="submit" name="save_time_out" value="1" class="block w-full text-center bg-brand-orange text-white font-bold rounded-lg px-5 py-3 hover:opacity-90 transition">Time Out</button>
       </form>
 
     <?php else: ?>
@@ -301,7 +301,7 @@ include __DIR__ . '/../../includes/topbar.php';
       <div class="flex gap-3">
         <?php if ($entry['status'] !== 'approved'): ?>
         <form method="POST">
-          <button type="submit" name="approve" value="1" class="bg-brand-green text-white text-sm font-semibold px-4 py-2 rounded-full hover:opacity-90 transition">Approve</button>
+          <button type="submit" name="approve" value="1" class="bg-brand-orange text-white text-sm font-semibold px-4 py-2 rounded-full hover:opacity-90 transition">Approve</button>
         </form>
         <?php endif; ?>
         <?php if ($entry['status'] === 'pending'): ?>

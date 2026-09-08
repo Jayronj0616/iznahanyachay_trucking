@@ -46,6 +46,13 @@ include __DIR__ . '/../includes/topbar.php';
         <span class="block text-sm text-gray-500 dark:text-gray-400">Assign and track driver trips</span>
       </span>
     </a>
+    <a href="<?php echo BASE_PATH; ?>/more/trip-attendance/" class="flex items-start gap-3 px-5 py-4 hover:bg-gray-50 dark:hover:bg-white/5 transition">
+      <span class="text-xl">📅</span>
+      <span>
+        <span class="block font-semibold text-gray-900 dark:text-white">Trip Attendance</span>
+        <span class="block text-sm text-gray-500 dark:text-gray-400">Auto-recorded attendance from completed trips</span>
+      </span>
+    </a>
     <?php endif; ?>
 
     <a href="<?php echo BASE_PATH; ?>/more/privacy-policy/" class="flex items-start gap-3 px-5 py-4 hover:bg-gray-50 dark:hover:bg-white/5 transition">

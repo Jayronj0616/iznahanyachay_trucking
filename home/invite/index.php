@@ -15,6 +15,17 @@ $error = null;
 $success = null;
 $createdPassword = null;
 
+$positions = ['driver', 'helper', 'dispatcher', 'secretary', 'maintenance', 'liaison', 'operator_manager'];
+$positionLabels = [
+    'driver' => 'Driver',
+    'helper' => 'Helper',
+    'dispatcher' => 'Dispatcher',
+    'secretary' => 'Secretary',
+    'maintenance' => 'Maintenance',
+    'liaison' => 'Liaison',
+    'operator_manager' => 'Operator Manager',
+];
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = trim($_POST['name'] ?? '');
     $email = trim($_POST['email'] ?? '');
@@ -23,6 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $licenseExpiry = $_POST['license_expiry'] ?? '';
     $hireDate = $_POST['hire_date'] ?? '';
     $status = $_POST['status'] ?? 'active';
+    $position = $_POST['position'] ?? '';
 
     if (!$name || !$email || !$password) {
         $error = 'Name, email, and temporary password are required.';
@@ -32,9 +44,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Password must be at least 8 characters.';
     } elseif (!in_array($status, ['active', 'inactive'], true)) {
         $error = 'Invalid status.';
+    } elseif ($position !== '' && !in_array($position, $positions, true)) {
+        $error = 'Invalid position.';
     } else {
         $licenseExpiryVal = $licenseExpiry ?: null;
         $hireDateVal = $hireDate ?: null;
+        $positionVal = $position ?: null;
 
         $db->beginTransaction();
         try {
@@ -43,9 +58,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $newUserId = (int) $db->lastInsertId();
 
             $stmt = $db->prepare(
-                'INSERT INTO employee_profiles (user_id, license_number, license_expiry, hire_date, status) VALUES (?, ?, ?, ?, ?)'
+                'INSERT INTO employee_profiles (user_id, license_number, license_expiry, hire_date, status, position) VALUES (?, ?, ?, ?, ?, ?)'
             );
-            $stmt->execute([$newUserId, $licenseNumber ?: null, $licenseExpiryVal, $hireDateVal, $status]);
+            $stmt->execute([$newUserId, $licenseNumber ?: null, $licenseExpiryVal, $hireDateVal, $status, $positionVal]);
 
             $db->commit();
             $success = 'Employee account created.';
@@ -91,12 +106,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Min 8 characters. Employee should change this after first login (no forced-change flow yet).</p>
       </div>
       <div>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Position</label>
+        <select name="position" id="ts-invite-position" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
+          <option value="">— Not set —</option>
+          <?php foreach ($positions as $p): ?>
+            <option value="<?php echo $p; ?>" <?php echo ($_POST['position'] ?? '') === $p ? 'selected' : ''; ?>><?php echo htmlspecialchars($positionLabels[$p]); ?></option>
+          <?php endforeach; ?>
+        </select>
+      </div>
+      <div id="ts-invite-license-fields" class="space-y-4 hidden">
+      <div>
         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">License Number</label>
         <input type="text" name="license_number" value="<?php echo htmlspecialchars($_POST['license_number'] ?? ''); ?>" maxlength="50" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
       </div>
       <div>
         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">License Expiry</label>
         <input type="date" name="license_expiry" value="<?php echo htmlspecialchars($_POST['license_expiry'] ?? ''); ?>" style="color-scheme: light;" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
+      </div>
       </div>
       <div>
         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Hire Date</label>
@@ -109,10 +135,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           <option value="inactive" <?php echo ($_POST['status'] ?? '') === 'inactive' ? 'selected' : ''; ?>>Inactive</option>
         </select>
       </div>
-      <button type="submit" class="w-full bg-brand-green text-white font-bold rounded-lg px-5 py-3 hover:opacity-90 transition">Create Employee Account</button>
+      <button type="submit" class="w-full bg-brand-orange text-white font-bold rounded-lg px-5 py-3 hover:opacity-90 transition">Create Employee Account</button>
     </form>
   </div>
 </main>
+
+<script>
+(function () {
+  var positionSelect = document.getElementById('ts-invite-position');
+  var licenseFields = document.getElementById('ts-invite-license-fields');
+
+  function toggleLicenseFields() {
+    licenseFields.classList.toggle('hidden', positionSelect.value !== 'driver');
+  }
+
+  positionSelect.addEventListener('change', toggleLicenseFields);
+  toggleLicenseFields();
+})();
+</script>
 
 <?php
 $navBase = BASE_PATH;

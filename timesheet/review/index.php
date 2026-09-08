@@ -114,7 +114,7 @@ $pendingCount = count(array_filter($entries, fn($e) => $e['status'] === 'pending
         <input type="date" name="period_end" value="<?php echo htmlspecialchars($periodEnd); ?>" style="color-scheme: light;" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-3 py-2 text-gray-900 dark:text-white">
       </div>
       <div class="sm:col-span-4">
-        <button type="submit" class="bg-brand-yellow text-gray-900 font-bold rounded-full px-5 py-2 hover:opacity-90 transition">Load Entries</button>
+        <button type="submit" class="bg-brand-orange text-white font-bold rounded-full px-5 py-2 hover:opacity-90 transition">Load Entries</button>
       </div>
     </form>
   </div>

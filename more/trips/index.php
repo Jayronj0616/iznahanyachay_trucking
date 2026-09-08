@@ -59,9 +59,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } elseif ($action === 'complete') {
         $tripId = (int) ($_POST['trip_id'] ?? 0);
-        $stmt = $db->prepare("UPDATE trips_new SET status = 'completed', completed_at = NOW() WHERE id = ? AND status = 'assigned'");
-        $stmt->execute([$tripId]);
-        $success = $stmt->rowCount() ? 'Trip marked completed.' : 'Trip was already completed or not found.';
+
+        $db->beginTransaction();
+        try {
+            $stmt = $db->prepare("SELECT driver_id, helper_id FROM trips_new WHERE id = ? AND status = 'assigned' FOR UPDATE");
+            $stmt->execute([$tripId]);
+            $trip = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$trip) {
+                $db->rollBack();
+                $success = 'Trip was already completed or not found.';
+            } else {
+                $stmt = $db->prepare("UPDATE trips_new SET status = 'completed', completed_at = NOW() WHERE id = ? AND status = 'assigned'");
+                $stmt->execute([$tripId]);
+
+                $stmt = $db->prepare('INSERT INTO trip_attendance (trip_id, user_id, role, date) VALUES (?, ?, ?, CURDATE())');
+                $stmt->execute([$tripId, $trip['driver_id'], 'driver']);
+                if ($trip['helper_id'] !== null) {
+                    $stmt->execute([$tripId, $trip['helper_id'], 'helper']);
+                }
+
+                $db->commit();
+                $success = 'Trip marked completed.';
+            }
+        } catch (PDOException $e) {
+            $db->rollBack();
+            $error = 'Failed to mark trip completed: ' . $e->getMessage();
+        }
     }
 }
 
@@ -134,7 +158,7 @@ $trips = $db->query(
             <?php endforeach; ?>
           </select>
         </div>
-        <button type="submit" class="bg-brand-green text-white font-bold rounded-lg px-5 py-3 hover:opacity-90 transition">Assign Trip</button>
+        <button type="submit" class="bg-brand-orange text-white font-bold rounded-lg px-5 py-3 hover:opacity-90 transition">Assign Trip</button>
       </form>
     <?php endif; ?>
   </div>

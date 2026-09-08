@@ -7,8 +7,8 @@
     <span class="text-orange-600 dark:text-brand-yellow font-extrabold tracking-wide text-lg">TRUCKING SYSTEM</span>
     <div class="flex items-center gap-3">
       <?php include __DIR__ . '/includes/theme-toggle.php'; ?>
-      <a href="<?php echo BASE_PATH; ?>/signup/" class="bg-orange-500 dark:bg-brand-yellow text-white dark:text-surface font-semibold text-sm px-5 py-2.5 rounded-full hover:opacity-90 transition">
-        Sign Up
+      <a href="<?php echo BASE_PATH; ?>/login/" class="bg-orange-500 dark:bg-brand-yellow text-white dark:text-surface font-semibold text-sm px-5 py-2.5 rounded-full hover:opacity-90 transition">
+        Login
       </a>
     </div>
   </div>
@@ -22,11 +22,11 @@
 
   <div class="relative max-w-5xl mx-auto px-6 py-24 text-center">
     <h1 class="text-4xl sm:text-5xl md:text-6xl font-extrabold text-gray-900 dark:text-white leading-tight">
-      Heavy Loads. Light Worries.<br>
-      <span class="text-orange-600 dark:text-brand-yellow">Trucking System</span> Has You Covered.
+      Payroll and Attendance,<br>
+      <span class="text-orange-600 dark:text-brand-yellow">Automated</span> for Your Fleet.
     </h1>
     <p class="mt-6 text-gray-600 dark:text-gray-300 text-base sm:text-lg max-w-2xl mx-auto">
-      Reliable trucking services that deliver your goods safely, fast, and stress-free.
+      Trip-based attendance, driver and helper commission payroll, and employee management — all in one internal system.
     </p>
     <a href="<?php echo BASE_PATH; ?>/login/" class="inline-block mt-8 bg-orange-500 dark:bg-brand-yellow text-white dark:text-surface font-bold px-8 py-3.5 rounded-full hover:opacity-90 transition">
       Get Started
@@ -34,20 +34,20 @@
 
     <div class="mt-16 grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-3xl mx-auto">
       <div class="bg-white dark:bg-surface-card/80 border border-gray-200 dark:border-surface-border rounded-xl px-4 py-5 shadow-sm dark:shadow-none">
-        <div class="text-orange-600 dark:text-brand-yellow text-2xl font-extrabold">500+</div>
-        <div class="text-gray-600 dark:text-gray-300 text-sm mt-1">Deliveries Completed</div>
+        <div class="text-orange-600 dark:text-brand-yellow text-lg font-extrabold">Automated</div>
+        <div class="text-gray-600 dark:text-gray-300 text-sm mt-1">Payroll</div>
       </div>
       <div class="bg-white dark:bg-surface-card/80 border border-gray-200 dark:border-surface-border rounded-xl px-4 py-5 shadow-sm dark:shadow-none">
-        <div class="text-orange-600 dark:text-brand-yellow text-2xl font-extrabold">98%</div>
-        <div class="text-gray-600 dark:text-gray-300 text-sm mt-1">On-Time Delivery</div>
+        <div class="text-orange-600 dark:text-brand-yellow text-lg font-extrabold">Trip-Based</div>
+        <div class="text-gray-600 dark:text-gray-300 text-sm mt-1">Attendance</div>
       </div>
       <div class="bg-white dark:bg-surface-card/80 border border-gray-200 dark:border-surface-border rounded-xl px-4 py-5 shadow-sm dark:shadow-none">
-        <div class="text-orange-600 dark:text-brand-yellow text-2xl font-extrabold">100+</div>
-        <div class="text-gray-600 dark:text-gray-300 text-sm mt-1">Clients</div>
+        <div class="text-orange-600 dark:text-brand-yellow text-lg font-extrabold">Driver &amp; Helper</div>
+        <div class="text-gray-600 dark:text-gray-300 text-sm mt-1">Commission Tracking</div>
       </div>
       <div class="bg-white dark:bg-surface-card/80 border border-gray-200 dark:border-surface-border rounded-xl px-4 py-5 shadow-sm dark:shadow-none">
-        <div class="text-orange-600 dark:text-brand-yellow text-2xl font-extrabold">24/7</div>
-        <div class="text-gray-600 dark:text-gray-300 text-sm mt-1">Availability</div>
+        <div class="text-orange-600 dark:text-brand-yellow text-lg font-extrabold">Admin-Controlled</div>
+        <div class="text-gray-600 dark:text-gray-300 text-sm mt-1">Account Access</div>
       </div>
     </div>
   </div>

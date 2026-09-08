@@ -9,6 +9,21 @@ RULE FOR WHOEVER CONTINUES THIS: the moment a page/function moves to a new statu
 
 ## SESSION HANDOFF (read this first)
 
+## DONE THIS SESSION: Self-signup REMOVED (panel revision) — account creation is now admin-only
+
+Panel feedback (see `PANEL_REVISIONS.md` for full list) required removing public self-signup as a security risk for an internal system. This REVERSES the self-signup+approval flow built in a prior session (see PRIOR SESSION entries below, now superseded/dead).
+
+1. DONE — `signup/index.php` gutted to a bare redirect to `/login/`. Old form/handler/pending-message UI fully removed.
+2. DONE — `login/index.php` — removed the "Don't have an account? SIGN UP" link.
+3. DONE — `more/employees/index.php` — removed the entire "Pending Approvals" section (query + approve/reject POST branch + HTML block). Confirmed self-contained before removal.
+4. NOT CHANGED (intentionally) — `includes/auth.php`'s `attemptLogin()` pending-status check left in place. Harmless dead branch: `home/invite/` always creates `active` accounts, so `pending` can never occur again. No cleanup needed unless someone wants the `pending` concept fully purged later.
+5. NOT RUN / NOT NEEDED — migration `013_employee_status_pending.sql` was never run (local or live). `pending` remains an unused enum value in the schema. No rollback migration needed since it was never applied.
+6. Account creation is now a SINGLE path: admin direct-create via `home/invite/` (lands `active`). This satisfies panel items A-5, A-6, C-1.
+
+NOT YET TESTED BY USER: visiting `/signup/` redirects to `/login/` cleanly; login page no longer shows the sign-up link; `/more/employees/` loads without errors now that the pending section is gone.
+
+UPDATE: ALL TESTED AND CONFIRMED WORKING BY USER. This item is fully closed.
+
 ## IN PROGRESS: Fixed monthly salary for non-driver/helper roles + payroll period fix (STARTED, NOT FINISHED)
 
 CONTEXT: User clarified pay model split further than originally scoped:
@@ -173,20 +188,21 @@ User shared full DoEmploy feature list. Comparing against this system's actual s
 - DB connection: ✅ done — `includes/config.php` has DB_HOST/DB_NAME/DB_USER/DB_PASS + getDB() PDO singleton. Local and live values differ (see DEPLOYMENT note at top).
 - Schema: 🟡 in progress — see Suggested DB Tables below for full live table list.
 - Seed data: ✅ locally — `database/seed_admin.sql` (admin@trucking.com / admin123@, role=admin), `database/seed_employee.sql` (employee1@trucking.com / employee123@, role=employee). Exported and imported into live DB — presence on live not yet independently confirmed by user.
-- Auth/session/role guard: ✅ `includes/auth.php` (requireLogin, requireAdmin, attemptLogin w/ pending-status check, logout). `login/index.php` wired to real DB check + role-based redirect + pending-specific error message.
+- Auth/session/role guard: ✅ `includes/auth.php` (requireLogin, requireAdmin, attemptLogin w/ pending-status check [now dead/unreachable since self-signup removal], logout). `login/index.php` wired to real DB check + role-based redirect. Sign-up link removed.
 - `home/index.php`: ✅ requireLogin() applied. Real clock-in/out, real month timesheet summary, real payroll_runs history list. NOT tested end-to-end by user.
 - `more/profile/index.php`: ✅ Self-service profile edit. Read-only employment details block.
-- `more/employees/index.php`: 🟡 Admin-only roster + edit-via-modal (converted this session, was page-reload) + Pending Approvals section (approve/reject self-signups). NOT tested by user.
+- `more/employees/index.php`: 🟡 Admin-only roster + edit-via-modal. Pending Approvals section REMOVED this session (self-signup killed per panel revision). NOT tested by user.
 - `includes/topbar.php`: ✅ optional `$topbarExtra` slot, backward compatible.
 - `timesheet/index.php`: ✅ History button via `$topbarExtra` slot (employee-only). Confirmed working. Admin-time-in-as-employee bug — fix coded, not yet tested.
 - `timesheet/entry/index.php`: 🟡 Soft-delete + reject-UI-removal DONE but NOT tested; migration 012 run. Admin Time-In/Time-Out access bug — CODE DONE (server-side block + read-only admin UI), NOT YET TESTED.
 - `timesheet/log/index.php`: ✅ redesigned, confirmed working.
-- `signup/index.php`: ✅ real self-signup form, creates pending employee account. NOT tested — migration 013 not run yet.
+- `signup/index.php`: ✅ REMOVED/gutted this session, now a bare redirect to `/login/`. No self-signup exists anymore.
 - Schema migrations: `002_clock_records.sql` (UNUSED/dead), `003_timesheet_entries.sql`, `004_trips.sql`, `005_payroll_runs.sql`, `006_payslips.sql`, `007_timesheet_status.sql`, `008_deductions.sql`, `009_timesheet_approvals.sql`, `010_employee_profiles.sql`, `011_timesheet_biometrics.sql`, `012_timesheet_soft_delete.sql` — confirmed live in DB (local; live DB import should include these). `013_employee_status_pending.sql` — NEW this session, NOT YET RUN anywhere. `invites` table still not started.
 - `clock_records` table exists in DB but is UNUSED/dead.
 - Payroll calc rules: rate_per_hour 100, ot_rate_per_hour 110 (base +10%), OT = hours beyond 8/day. Trip incentive: flat 50/trip via `trips` table (placeholder). Deductions: real 2026 government contribution tables.
 - Real government deduction tables (2026, halved for semi-monthly 15/30 cutoffs): SSS — 15% of Monthly Salary Credit, employee pays 5%, MSC bracketed in ₱500 steps ₱5,000-₱35,000. PhilHealth — 5% of basic salary, employee pays 2.5%, floor ₱10,000/ceiling ₱100,000 monthly. Pag-IBIG — employee pays 1% if monthly salary ≤₱1,500 else 2%, capped at ₱10,000 monthly. Implemented as `calculateSSS()`, `calculatePhilHealth()`, `calculatePagibig()` in payroll/index.php.
 - `deductions` table: transaction-log, one row per SSS/PhilHealth/Pag-IBIG per payroll_run. "View" button per payroll run row opens a modal with line items + basis notes.
+- `trip_attendance` table (migration 018, RUN by user): auto-created when a trip is marked completed in `more/trips/index.php` (driver + helper each get their own row, presence-only, no approval needed). Viewable via new admin-only `more/trip-attendance/index.php` (filter by employee/date range). Does NOT feed payroll — commission calc still reads `trips_new` directly.
 - Payroll: ✅ working end-to-end, role-branched. `payroll/run/index.php` deprecated, redirects to `/payroll/`.
 - Timesheet dark/light bug: ✅ fixed.
 - Finalize action: ✅ done.
@@ -194,8 +210,10 @@ User shared full DoEmploy feature list. Comparing against this system's actual s
 - Run Payroll: employee list from JOIN against `timesheet_approvals` for exact period. Duplicate-run skip per user_id+period_start+period_end.
 - `timesheet/review/index.php`: ✅ admin-only, employee+period picker, per-entry reject (modal), Approve Period bulk-approve + timesheet_approvals insert.
 - Biometric time-in: ✅ `includes/biometric.php` saves captured photo. Employee time-in requires photo capture. Admin has NO time-in/time-out path at all (server-side blocked + no form rendered).
-- Account creation: TWO paths now — (1) admin direct-create via `home/invite/` (lands active), (2) self-signup via `signup/` (lands pending, needs admin approval via `more/employees/`).
-- NEXT: (1) run migration 013 + test signup/approval flow. (2) test admin-cannot-time-in fix. (3) test soft-delete + reject-UI-removal. (4) Employee CRUD untested. (5) home/index.php changes untested. (6) full approval→payroll flow untested end-to-end. (7) QR clock-in deferred. (8) DoEmploy gaps remain. (9) IZNAHANYACHAY paper alignment check — open. (10) confirm live DB seed data present.
+- Account creation: ONE path only — admin direct-create via `home/invite/` (lands active). Self-signup REMOVED this session per panel revision, TESTED AND CONFIRMED WORKING.
+- Trip-completion → automatic attendance: ✅ DONE AND TESTED. Panel revision B-19/20/C-6/7 fully closed. Both bugs found during testing (missing Position field on invite, unconditional license fields) also fixed and tested.
+- UI color/design polish (panel A-11/C-8): 🟡 CODE DONE, NOT TESTED. Applied consistent role rule across every page (orange = primary actions, green = status only, yellow = focus/accent). Also fixed a stale landing-page Sign Up button and freight-delivery-brand copy/stats found during the pass. See PANEL_REVISIONS.md for full file list.
+- NEXT: (1) test the UI color changes visually across pages. (2) test admin-cannot-time-in fix. (3) test soft-delete + reject-UI-removal. (4) Employee CRUD untested. (5) home/index.php changes untested. (6) full approval→payroll flow untested end-to-end. (7) QR clock-in deferred. (8) DoEmploy gaps remain. (9) IZNAHANYACHAY paper alignment check — open. (10) confirm live DB seed data present. (11) remaining panel items are documentation/paper-only (typos, RRL, methodology, diagrams) — not code tasks.
 - Helper file: `PROMPT.md` — session-start prompt for new Claude accounts.
 - Reference: IZNAHANYACHAY paper is source of truth for payroll calc rules (checked, no usable formulas found — current rates are real 2026 gov't tables instead), DoEmploy is UX/feature reference only.
 
@@ -204,8 +222,8 @@ User shared full DoEmploy feature list. Comparing against this system's actual s
 ```
 trucking_system/
 ├── index.php                      ✅ Public landing page (static marketing)
-├── login/index.php                ✅ real auth, pending-account message
-├── signup/index.php               ✅ real self-signup, creates pending employee account, NOT tested (migration 013 pending)
+├── login/index.php                ✅ real auth, sign-up link removed
+├── signup/index.php               ✅ REMOVED, now a bare redirect to /login/ (panel revision)
 ├── includes/
 │   ├── config.php                 ✅ BASE_PATH + DB connection. LOCAL vs LIVE values differ, see DEPLOYMENT note.
 │   ├── head.php                   ✅ done
@@ -221,7 +239,7 @@ trucking_system/
 │   ├── index.php                  ✅ real clock-in/out, real timesheet summary, real payroll history. NOT tested end-to-end.
 │   ├── overview/index.php         🟡 UI only — cards show static "No data"/"--"
 │   ├── clock-in/index.php         🔴 orphaned placeholder — no longer linked, candidate for deletion
-│   └── invite/index.php           ✅ admin direct-create employee account (lands active). NOT tested by user.
+│   └── invite/index.php           ✅ admin direct-create employee account (lands active) + Position field (added this session). NOT tested by user.
 ├── timesheet/
 │   ├── index.php                  ✅ role-branched, manual entry + records, History button (employee) via topbar slot, day label is role-based ("Tap to View" admin / "Tap to Add" employee), links to review screen (admin).
 │   ├── entry/index.php            🟡 per-date view, approve/reject/delete built; soft-delete done not tested; admin time-in/out bug fix coded, not tested.
@@ -233,9 +251,10 @@ trucking_system/
 ├── more/
 │   ├── index.php                  ✅ real logout POST form, Employees + Routes links (admin-only), Profile/Privacy/About links
 │   ├── profile/index.php          ✅ self-service edit, NOT tested
-│   ├── employees/index.php        🟡 admin roster + edit-via-modal (converted this session) + Pending Approvals section + Position field (this session), NOT tested
+│   ├── employees/index.php        🟡 admin roster + edit-via-modal + Position field. Pending Approvals section REMOVED this session (panel revision). NOT tested
 │   ├── routes/index.php           🟡 NEW — admin CRUD for delivery routes/rates (add, edit-via-modal, activate/deactivate toggle, soft-hide only). NOT tested.
-│   ├── trips/index.php            🟡 NEW — admin trip assignment (route+driver+helper picker, server-validated) + Mark Completed action. Targets `trips_new` table. NOT tested.
+│   ├── trips/index.php            🟡 NEW — admin trip assignment (route+driver+helper picker, server-validated) + Mark Completed action. Targets `trips_new` table. Mark Completed now also auto-inserts `trip_attendance` rows (driver + helper) in a transaction. NOT tested.
+│   ├── trip-attendance/index.php  ✅ NEW — admin-only, read-only report of auto-recorded trip attendance. Filterable by employee/date range. NOT tested.
 │   ├── privacy-policy/index.php   🔴 placeholder, needs policy text written
 │   └── about/index.php            🔴 placeholder, needs version/info content
 └── assets/
@@ -251,7 +270,10 @@ Note: `admin/` tree no longer exists — fully merged into single role-branched 
 1. `home/clock-in/index.php` — orphaned, dead code, should be deleted.
 2. Minor inconsistency: `home/invite/index.php` catches duplicate-email via DB unique constraint + PDOException; `more/employees/index.php` pre-checks email uniqueness in PHP before updating. Two different patterns for the same guarantee — not unified, not a functional bug.
 3. CLOSED (pending test) — admin could Time In / Time Out as the currently-selected employee on `timesheet/entry/index.php`. Fixed: server-side block + dedicated read-only admin UI branch. Not yet tested by user.
-4. CLOSED (pending migration + test) — no self-signup path existed; signup page was pure UI. Fixed: real signup + pending-approval gate. Migration 013 must be run first.
+4. CLOSED (superseded) — self-signup+approval flow was built in a prior session, then REMOVED this session per panel revision (public self-signup is a security risk for an internal system). See DONE THIS SESSION entry at top. Account creation is now admin-only.
+5. TESTED AND CONFIRMED WORKING BY USER — trip-completion → automatic attendance (migration 018 run, insert wired into `more/trips/index.php`, report page `more/trip-attendance/index.php`). Trip completion (with/without helper) creates correct `trip_attendance` rows, report page filters work correctly.
+6. CLOSED — `home/invite/index.php` had no Position field, meaning an admin-invited driver/helper wouldn't show up in Trip Assignment dropdowns (which filter on `employee_profiles.position`) until manually edited via `more/employees/`. Found by user while testing this session's trip-attendance work. Fixed: Position dropdown (same 7 options as `more/employees/index.php`) added to the invite form and wired into the insert. TESTED AND CONFIRMED WORKING.
+7. CLOSED — License Number/Expiry fields showed unconditionally on both `home/invite/index.php` and the Edit modal in `more/employees/index.php`, even when Position wasn't Driver — confusing since license only matters for drivers. Fixed: both fields now hidden via JS unless Position = Driver is selected (`change` listener + shown-on-load check for the edit modal's pre-filled state). No backend validation change — license fields were already optional server-side, this is UI-only. TESTED AND CONFIRMED WORKING.
 
 ## Navigation Model
 
@@ -267,7 +289,7 @@ System is modeled after DoEmploy (payroll/attendance app): automated payroll cal
 
 ## Suggested DB Tables (status)
 
-`users` ✅, `employee_profiles` ✅ (phone, address, license_number, license_expiry, hire_date, status — status now `pending|active|inactive` as of migration 013), `clock_records` ✅ exists but UNUSED/dead, `timesheet_entries` ✅ (manual + QR type column, QR path unused; `time_in_photo` added for biometric capture; `deleted_at` added for soft-delete), `payroll_runs` ✅, `payslips` ✅, `deductions` ✅, `timesheet_approvals` ✅, `trips` ⚠️ OLD placeholder table, still exists but DEAD/unused (flat ₱50 incentive, free-text destination, single user_id). `trips_new` ✅ NEW (migration 015, route_id/driver_id/helper_id/amount_per_trip/status/started_at/completed_at) — this is the table all trip-commission payroll work targets going forward. NOTE: name is `trips_new`, not renamed to `trips` (user ran migration as-written, old table left in place). `routes` ✅ NEW (migration 014, destination/amount_per_trip/active) — admin CRUD built, feeds `trips_new`. `invites` 🔴 not started, `performance_metrics` 🔴 not started, leave/PTO table 🔴 not started.
+`users` ✅, `employee_profiles` ✅ (phone, address, license_number, license_expiry, hire_date, status — status now `pending|active|inactive` as of migration 013, though `pending` is unreachable dead code as of self-signup removal), `clock_records` ✅ exists but UNUSED/dead, `timesheet_entries` ✅ (manual + QR type column, QR path unused; `time_in_photo` added for biometric capture; `deleted_at` added for soft-delete), `payroll_runs` ✅, `payslips` ✅, `deductions` ✅, `timesheet_approvals` ✅, `trips` ⚠️ OLD placeholder table, still exists but DEAD/unused (flat ₱50 incentive, free-text destination, single user_id). `trips_new` ✅ NEW (migration 015, route_id/driver_id/helper_id/amount_per_trip/status/started_at/completed_at) — this is the table all trip-commission payroll work targets going forward. NOTE: name is `trips_new`, not renamed to `trips` (user ran migration as-written, old table left in place). `routes` ✅ NEW (migration 014, destination/amount_per_trip/active) — admin CRUD built, feeds `trips_new`. `trip_attendance` ✅ NEW (migration 018, trip_id/user_id/role/date) — auto-populated on trip completion, presence-only, feeds the new `more/trip-attendance/index.php` report, does NOT feed payroll. `invites` 🔴 not started, `performance_metrics` 🔴 not started, leave/PTO table 🔴 not started.
 
 ## DECISION MADE (historical): Kill admin/ tree, single pages with role branching
 

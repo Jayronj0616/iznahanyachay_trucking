@@ -10,7 +10,7 @@ $pageIcon = '⏱️';
 $pageLabel = 'Timesheet';
 $isAdminForTopbar = $_SESSION['user']['role'] === 'admin';
 $topbarExtra = !$isAdminForTopbar
-    ? '<a href="' . BASE_PATH . '/timesheet/log/" class="inline-flex items-center gap-2 bg-brand-green text-white text-sm font-semibold px-4 py-2 rounded-full hover:opacity-90 transition">🕘 History</a>'
+    ? '<a href="' . BASE_PATH . '/timesheet/log/" class="inline-flex items-center gap-2 bg-brand-orange text-white text-sm font-semibold px-4 py-2 rounded-full hover:opacity-90 transition">🕘 History</a>'
     : '';
 include __DIR__ . '/../includes/topbar.php';
 
@@ -65,7 +65,7 @@ foreach ($entries as $entry) {
         <?php endforeach; ?>
       </select>
     </form>
-    <a href="<?php echo BASE_PATH; ?>/timesheet/review/" class="bg-brand-green text-white text-sm font-semibold px-4 py-2 rounded-full hover:opacity-90 transition whitespace-nowrap">Review Period</a>
+    <a href="<?php echo BASE_PATH; ?>/timesheet/review/" class="bg-brand-orange text-white text-sm font-semibold px-4 py-2 rounded-full hover:opacity-90 transition whitespace-nowrap">Review Period</a>
   </div>
   <?php endif; ?>
 
@@ -74,7 +74,7 @@ foreach ($entries as $entry) {
       <span class="flex items-center gap-2 text-gray-800 dark:text-gray-200 font-medium text-sm">
         📅 This Month (<?php echo $monthAbbr; ?>)
       </span>
-      <a href="#today" class="text-brand-green text-sm font-semibold">Today</a>
+      <a href="#today" class="text-brand-orange text-sm font-semibold">Today</a>
     </div>
 
     <div class="divide-y divide-gray-200 dark:divide-surface-border">

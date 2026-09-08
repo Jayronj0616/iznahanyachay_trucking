@@ -77,7 +77,7 @@ $routes = $db->query('SELECT * FROM routes ORDER BY active DESC, destination ASC
         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Amount per Trip (₱)</label>
         <input type="number" name="amount_per_trip" step="0.01" min="0.01" required class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
       </div>
-      <button type="submit" class="bg-brand-green text-white font-bold rounded-lg px-5 py-3 hover:opacity-90 transition">Add Route</button>
+      <button type="submit" class="bg-brand-orange text-white font-bold rounded-lg px-5 py-3 hover:opacity-90 transition">Add Route</button>
     </form>
   </div>
 
@@ -150,7 +150,7 @@ $routes = $db->query('SELECT * FROM routes ORDER BY active DESC, destination ASC
         <input type="number" name="amount_per_trip" id="ts-edit-route-amount" step="0.01" min="0.01" required class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
       </div>
       <div class="flex gap-3">
-        <button type="submit" class="flex-1 bg-brand-green text-white font-bold rounded-lg px-5 py-3 hover:opacity-90 transition">Save Changes</button>
+        <button type="submit" class="flex-1 bg-brand-orange text-white font-bold rounded-lg px-5 py-3 hover:opacity-90 transition">Save Changes</button>
         <button type="button" id="ts-edit-route-cancel" class="flex-1 border border-gray-300 dark:border-surface-border text-gray-700 dark:text-gray-300 font-bold rounded-lg px-5 py-3 hover:bg-gray-100 dark:hover:bg-white/5 transition">Cancel</button>
       </div>
     </form>

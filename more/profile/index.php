@@ -114,7 +114,7 @@ $profile = $stmt->fetch(PDO::FETCH_ASSOC) ?: [
       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">New Password <span class="text-gray-400 font-normal">(leave blank to keep current)</span></label>
       <input type="password" name="new_password" minlength="8" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
     </div>
-    <button type="submit" class="w-full bg-brand-green text-white font-bold rounded-lg px-5 py-3 hover:opacity-90 transition">Save Changes</button>
+    <button type="submit" class="w-full bg-brand-orange text-white font-bold rounded-lg px-5 py-3 hover:opacity-90 transition">Save Changes</button>
   </form>
 
   <div class="bg-gray-50 dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-xl p-6">
