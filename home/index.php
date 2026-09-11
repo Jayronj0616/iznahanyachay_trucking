@@ -59,13 +59,13 @@ while ($dayCursor <= $todayTs) {
 $paidLeaveHours = null;
 $unpaidLeaveHours = null;
 
-// Real payroll history for sparkline-equivalent (last 6 runs, any status)
+// Real payroll history, newest period first (last 6 runs, any status)
 $stmt = $db->prepare(
     'SELECT period_start, period_end, net_pay, status FROM payroll_runs
      WHERE user_id = ? ORDER BY period_start DESC LIMIT 6'
 );
 $stmt->execute([$userId]);
-$recentRuns = array_reverse($stmt->fetchAll(PDO::FETCH_ASSOC));
+$recentRuns = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
 <main class="max-w-3xl mx-auto w-full px-4 pb-32 pt-4 sm:px-6 space-y-6">
@@ -115,7 +115,7 @@ $recentRuns = array_reverse($stmt->fetchAll(PDO::FETCH_ASSOC));
       <?php else: ?>
         <div class="text-center text-sm text-gray-500 dark:text-gray-400 mb-3">Net Pay — Last <?php echo count($recentRuns); ?> Period(s)</div>
         <div class="grid grid-cols-1 gap-2">
-          <?php foreach (array_reverse($recentRuns) as $run): ?>
+          <?php foreach ($recentRuns as $run): ?>
             <div class="flex items-center justify-between text-sm border-b border-gray-100 dark:border-surface-border pb-2 last:border-0 last:pb-0">
               <span class="text-gray-600 dark:text-gray-300"><?php echo htmlspecialchars(date('M j', strtotime($run['period_start'])) . ' – ' . date('M j', strtotime($run['period_end']))); ?></span>
               <span class="font-bold text-gray-900 dark:text-white">₱<?php echo number_format($run['net_pay'], 2); ?></span>

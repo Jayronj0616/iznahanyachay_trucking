@@ -139,8 +139,8 @@ $pendingCount = count(array_filter($entries, fn($e) => $e['status'] === 'pending
             <?php foreach ($entries as $entry): ?>
               <tr class="border-t border-gray-200 dark:border-surface-border text-gray-900 dark:text-white">
                 <td class="pr-6 py-2"><?php echo htmlspecialchars($entry['date']); ?></td>
-                <td class="pr-6 py-2"><?php echo htmlspecialchars($entry['time_in']); ?></td>
-                <td class="pr-6 py-2"><?php echo htmlspecialchars($entry['time_out']); ?></td>
+                <td class="pr-6 py-2"><?php echo htmlspecialchars($entry['time_in'] ?? ''); ?></td>
+                <td class="pr-6 py-2"><?php echo htmlspecialchars($entry['time_out'] ?? ''); ?></td>
                 <td class="pr-6 py-2">
                   <?php if ($entry['status'] === 'approved'): ?>
                     <span class="inline-block bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-semibold px-2 py-1 rounded-full">Approved</span>

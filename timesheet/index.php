@@ -129,8 +129,8 @@ foreach ($entries as $entry) {
             <?php foreach ($entries as $entry): ?>
               <tr class="border-t border-gray-200 dark:border-surface-border text-gray-900 dark:text-white">
                 <td class="pr-6 py-2"><?php echo htmlspecialchars($entry['date']); ?></td>
-                <td class="pr-6 py-2"><?php echo htmlspecialchars($entry['time_in']); ?></td>
-                <td class="pr-6 py-2"><?php echo htmlspecialchars($entry['time_out']); ?></td>
+                <td class="pr-6 py-2"><?php echo htmlspecialchars($entry['time_in'] ?? ''); ?></td>
+                <td class="pr-6 py-2"><?php echo htmlspecialchars($entry['time_out'] ?? ''); ?></td>
                 <td class="py-2"><?php echo htmlspecialchars($entry['type']); ?></td>
               </tr>
             <?php endforeach; ?>
