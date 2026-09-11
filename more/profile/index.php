@@ -79,7 +79,7 @@ $stmt = $db->prepare('SELECT * FROM employee_profiles WHERE user_id = ?');
 $stmt->execute([$userId]);
 $profile = $stmt->fetch(PDO::FETCH_ASSOC) ?: [
     'phone' => '', 'address' => '', 'license_number' => null,
-    'license_expiry' => null, 'hire_date' => null, 'status' => 'active',
+    'license_expiry' => null, 'hire_date' => null, 'status' => 'active', 'position' => null,
 ];
 ?>
 
@@ -121,6 +121,7 @@ $profile = $stmt->fetch(PDO::FETCH_ASSOC) ?: [
     <h2 class="text-gray-900 dark:text-white font-bold mb-1">Employment Details</h2>
     <p class="text-xs text-gray-400 dark:text-gray-500 mb-4">Set by admin — contact HR to update.</p>
     <div class="grid grid-cols-2 gap-4 text-sm">
+      <div><div class="text-gray-500 dark:text-gray-400">Position</div><div class="text-gray-900 dark:text-white font-medium capitalize"><?php echo htmlspecialchars($profile['position'] ? str_replace('_', ' ', $profile['position']) : '—'); ?></div></div>
       <div><div class="text-gray-500 dark:text-gray-400">License Number</div><div class="text-gray-900 dark:text-white font-medium"><?php echo htmlspecialchars($profile['license_number'] ?? '—'); ?></div></div>
       <div><div class="text-gray-500 dark:text-gray-400">License Expiry</div><div class="text-gray-900 dark:text-white font-medium"><?php echo htmlspecialchars($profile['license_expiry'] ?? '—'); ?></div></div>
       <div><div class="text-gray-500 dark:text-gray-400">Hire Date</div><div class="text-gray-900 dark:text-white font-medium"><?php echo htmlspecialchars($profile['hire_date'] ?? '—'); ?></div></div>

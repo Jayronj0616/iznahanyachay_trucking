@@ -45,6 +45,7 @@ include __DIR__ . '/../includes/head.php';
       <input
         type="email"
         name="email"
+        autocomplete="email"
         placeholder="Enter Email"
         value="<?php echo htmlspecialchars($_POST['email'] ?? ''); ?>"
         required
@@ -53,6 +54,7 @@ include __DIR__ . '/../includes/head.php';
       <input
         type="password"
         name="password"
+        autocomplete="current-password"
         placeholder="Enter Password"
         required
         class="w-full bg-transparent border border-gray-300 dark:border-surface-border rounded-full px-5 py-3 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-brand-yellow transition"
