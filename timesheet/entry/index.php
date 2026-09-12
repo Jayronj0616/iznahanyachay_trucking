@@ -171,8 +171,8 @@ include __DIR__ . '/../../includes/topbar.php';
         <p class="text-gray-500 dark:text-gray-400 text-sm">No entry recorded for this date.</p>
       <?php else: ?>
         <div class="mb-3">
-          <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Time In (recorded)</label>
-          <input type="time" value="<?php echo htmlspecialchars($entry['time_in']); ?>" disabled class="w-full bg-gray-100 dark:bg-surface/50 border border-gray-300 dark:border-surface-border rounded-lg px-4 py-3 text-gray-500 dark:text-gray-400">
+          <label for="entry-time-in-display" class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Time In (recorded)</label>
+          <input id="entry-time-in-display" type="time" value="<?php echo htmlspecialchars($entry['time_in']); ?>" disabled class="w-full bg-gray-100 dark:bg-surface/50 border border-gray-300 dark:border-surface-border rounded-lg px-4 py-3 text-gray-500 dark:text-gray-400">
         </div>
         <?php if (!empty($entry['time_in_photo'])): ?>
         <div class="mb-3">
@@ -182,8 +182,8 @@ include __DIR__ . '/../../includes/topbar.php';
         <?php endif; ?>
         <?php if ($entry['time_out']): ?>
         <div>
-          <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Time Out (recorded)</label>
-          <input type="time" value="<?php echo htmlspecialchars($entry['time_out']); ?>" disabled class="w-full bg-gray-100 dark:bg-surface/50 border border-gray-300 dark:border-surface-border rounded-lg px-4 py-3 text-gray-500 dark:text-gray-400">
+          <label for="entry-time-out-display" class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Time Out (recorded)</label>
+          <input id="entry-time-out-display" type="time" value="<?php echo htmlspecialchars($entry['time_out']); ?>" disabled class="w-full bg-gray-100 dark:bg-surface/50 border border-gray-300 dark:border-surface-border rounded-lg px-4 py-3 text-gray-500 dark:text-gray-400">
         </div>
         <?php else: ?>
         <p class="text-gray-500 dark:text-gray-400 text-sm">Time out not yet recorded.</p>
@@ -265,12 +265,12 @@ include __DIR__ . '/../../includes/topbar.php';
     <?php else: ?>
       <div class="grid grid-cols-2 gap-3">
         <div>
-          <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Time In</label>
-          <input type="time" value="<?php echo htmlspecialchars($entry['time_in']); ?>" disabled class="w-full bg-gray-100 dark:bg-surface/50 border border-gray-300 dark:border-surface-border rounded-lg px-4 py-3 text-gray-500 dark:text-gray-400">
+          <label for="entry-time-in-final" class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Time In</label>
+          <input id="entry-time-in-final" type="time" value="<?php echo htmlspecialchars($entry['time_in']); ?>" disabled class="w-full bg-gray-100 dark:bg-surface/50 border border-gray-300 dark:border-surface-border rounded-lg px-4 py-3 text-gray-500 dark:text-gray-400">
         </div>
         <div>
-          <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Time Out</label>
-          <input type="time" value="<?php echo htmlspecialchars($entry['time_out']); ?>" disabled class="w-full bg-gray-100 dark:bg-surface/50 border border-gray-300 dark:border-surface-border rounded-lg px-4 py-3 text-gray-500 dark:text-gray-400">
+          <label for="entry-time-out-final" class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Time Out</label>
+          <input id="entry-time-out-final" type="time" value="<?php echo htmlspecialchars($entry['time_out']); ?>" disabled class="w-full bg-gray-100 dark:bg-surface/50 border border-gray-300 dark:border-surface-border rounded-lg px-4 py-3 text-gray-500 dark:text-gray-400">
         </div>
       </div>
       <?php if (!empty($entry['time_in_photo'])): ?>

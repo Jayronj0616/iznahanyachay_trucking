@@ -59,8 +59,8 @@ $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
   <form method="GET" class="bg-gray-50 dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-xl p-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
     <div>
-      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Employee</label>
-      <select name="user_id" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
+      <label for="ta-user-id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Employee</label>
+      <select id="ta-user-id" name="user_id" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
         <option value="">All drivers/helpers</option>
         <?php foreach ($driversHelpers as $u): ?>
           <option value="<?php echo (int) $u['id']; ?>" <?php echo $employeeFilter === (int) $u['id'] ? 'selected' : ''; ?>><?php echo htmlspecialchars($u['name']); ?></option>
@@ -68,12 +68,12 @@ $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
       </select>
     </div>
     <div>
-      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">From</label>
-      <input type="date" name="date_from" value="<?php echo htmlspecialchars($dateFrom); ?>" style="color-scheme: light;" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
+      <label for="ta-date-from" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">From</label>
+      <input id="ta-date-from" type="date" name="date_from" value="<?php echo htmlspecialchars($dateFrom); ?>" style="color-scheme: light;" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
     </div>
     <div>
-      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">To</label>
-      <input type="date" name="date_to" value="<?php echo htmlspecialchars($dateTo); ?>" style="color-scheme: light;" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
+      <label for="ta-date-to" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">To</label>
+      <input id="ta-date-to" type="date" name="date_to" value="<?php echo htmlspecialchars($dateTo); ?>" style="color-scheme: light;" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
     </div>
     <div class="sm:col-span-3 flex gap-3">
       <button type="submit" class="bg-brand-orange text-white font-bold rounded-lg px-5 py-2.5 hover:opacity-90 transition">Filter</button>

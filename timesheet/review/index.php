@@ -98,20 +98,20 @@ $pendingCount = count(array_filter($entries, fn($e) => $e['status'] === 'pending
   <div class="bg-gray-50 dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-xl p-4">
     <form method="GET" class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
       <div class="sm:col-span-2">
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Employee</label>
-        <select name="user_id" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-3 py-2 text-gray-900 dark:text-white">
+        <label for="review-user-id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Employee</label>
+        <select id="review-user-id" name="user_id" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-3 py-2 text-gray-900 dark:text-white">
           <?php foreach ($employees as $emp): ?>
             <option value="<?php echo (int) $emp['id']; ?>" <?php echo $selectedUserId === (int) $emp['id'] ? 'selected' : ''; ?>><?php echo htmlspecialchars($emp['name']); ?></option>
           <?php endforeach; ?>
         </select>
       </div>
       <div>
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">From</label>
-        <input type="date" name="period_start" value="<?php echo htmlspecialchars($periodStart); ?>" style="color-scheme: light;" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-3 py-2 text-gray-900 dark:text-white">
+        <label for="review-period-start" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">From</label>
+        <input id="review-period-start" type="date" name="period_start" value="<?php echo htmlspecialchars($periodStart); ?>" style="color-scheme: light;" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-3 py-2 text-gray-900 dark:text-white">
       </div>
       <div>
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">To</label>
-        <input type="date" name="period_end" value="<?php echo htmlspecialchars($periodEnd); ?>" style="color-scheme: light;" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-3 py-2 text-gray-900 dark:text-white">
+        <label for="review-period-end" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">To</label>
+        <input id="review-period-end" type="date" name="period_end" value="<?php echo htmlspecialchars($periodEnd); ?>" style="color-scheme: light;" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-3 py-2 text-gray-900 dark:text-white">
       </div>
       <div class="sm:col-span-4">
         <button type="submit" class="bg-brand-orange text-white font-bold rounded-full px-5 py-2 hover:opacity-90 transition">Load Entries</button>

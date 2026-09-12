@@ -284,8 +284,8 @@ if (!empty($runs)) {
     <?php else: ?>
     <form method="POST" data-confirm="Run payroll for all employees in this period? This will create a payroll record for each employee not yet run." class="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
       <div class="sm:col-span-2">
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Period</label>
-        <select name="period" onchange="var v=this.value.split('|'); this.form.period_start.value=v[0]; this.form.period_end.value=v[1];" class="w-full rounded-lg border border-gray-300 dark:border-surface-border dark:bg-surface dark:text-white px-3 py-2 text-sm">
+        <label for="payroll-period" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Period</label>
+        <select id="payroll-period" name="period" onchange="var v=this.value.split('|'); this.form.period_start.value=v[0]; this.form.period_end.value=v[1];" class="w-full rounded-lg border border-gray-300 dark:border-surface-border dark:bg-surface dark:text-white px-3 py-2 text-sm">
           <?php foreach ($eligiblePeriods as $p): ?>
             <option value="<?php echo htmlspecialchars($p['period_start'] . '|' . $p['period_end']); ?>"><?php echo htmlspecialchars($p['period_start'] . ' to ' . $p['period_end']); ?></option>
           <?php endforeach; ?>

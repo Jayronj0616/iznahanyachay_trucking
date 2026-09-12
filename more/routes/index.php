@@ -70,12 +70,12 @@ $routes = $db->query('SELECT * FROM routes ORDER BY active DESC, destination ASC
     <form method="POST" class="space-y-4">
       <input type="hidden" name="action" value="create">
       <div>
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Destination</label>
-        <input type="text" name="destination" required class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
+        <label for="route-destination" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Destination</label>
+        <input id="route-destination" type="text" name="destination" required class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
       </div>
       <div>
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Amount per Trip (₱)</label>
-        <input type="number" name="amount_per_trip" step="0.01" min="0.01" required class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
+        <label for="route-amount" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Amount per Trip (₱)</label>
+        <input id="route-amount" type="number" name="amount_per_trip" step="0.01" min="0.01" required class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
       </div>
       <button type="submit" class="bg-brand-orange text-white font-bold rounded-lg px-5 py-3 hover:opacity-90 transition">Add Route</button>
     </form>
@@ -142,11 +142,11 @@ $routes = $db->query('SELECT * FROM routes ORDER BY active DESC, destination ASC
       <input type="hidden" name="action" value="update">
       <input type="hidden" name="route_id" id="ts-edit-route-id">
       <div>
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Destination</label>
+        <label for="ts-edit-route-destination" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Destination</label>
         <input type="text" name="destination" id="ts-edit-route-destination" required class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
       </div>
       <div>
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Amount per Trip (₱)</label>
+        <label for="ts-edit-route-amount" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Amount per Trip (₱)</label>
         <input type="number" name="amount_per_trip" id="ts-edit-route-amount" step="0.01" min="0.01" required class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
       </div>
       <div class="flex gap-3">

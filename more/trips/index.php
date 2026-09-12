@@ -132,8 +132,8 @@ $trips = $db->query(
       <form method="POST" data-confirm="Assign this trip?" class="space-y-4">
         <input type="hidden" name="action" value="create">
         <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Route</label>
-          <select name="route_id" required class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
+          <label for="trip-route-id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Route</label>
+          <select id="trip-route-id" name="route_id" required class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
             <option value="">Select route</option>
             <?php foreach ($activeRoutes as $r): ?>
               <option value="<?php echo (int) $r['id']; ?>"><?php echo htmlspecialchars($r['destination']); ?> (₱<?php echo number_format((float) $r['amount_per_trip'], 2); ?>)</option>
@@ -141,8 +141,8 @@ $trips = $db->query(
           </select>
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Driver</label>
-          <select name="driver_id" required class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
+          <label for="trip-driver-id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Driver</label>
+          <select id="trip-driver-id" name="driver_id" required class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
             <option value="">Select driver</option>
             <?php foreach ($drivers as $d): ?>
               <option value="<?php echo (int) $d['id']; ?>"><?php echo htmlspecialchars($d['name']); ?></option>
@@ -150,8 +150,8 @@ $trips = $db->query(
           </select>
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Helper (optional)</label>
-          <select name="helper_id" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
+          <label for="trip-helper-id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Helper (optional)</label>
+          <select id="trip-helper-id" name="helper_id" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
             <option value="">No helper</option>
             <?php foreach ($helpers as $h): ?>
               <option value="<?php echo (int) $h['id']; ?>"><?php echo htmlspecialchars($h['name']); ?></option>

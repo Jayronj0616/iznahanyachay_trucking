@@ -58,8 +58,8 @@ foreach ($entries as $entry) {
   <?php if ($isAdmin): ?>
   <div class="bg-gray-50 dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-xl p-4 flex items-center justify-between gap-3">
     <form method="GET" class="flex items-center gap-3 flex-1">
-      <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Employee:</label>
-      <select name="user_id" onchange="this.form.submit()" class="flex-1 bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-3 py-2 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
+      <label for="timesheet-user-id" class="text-sm font-medium text-gray-700 dark:text-gray-300">Employee:</label>
+      <select id="timesheet-user-id" name="user_id" onchange="this.form.submit()" class="flex-1 bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-3 py-2 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
         <?php foreach ($employees as $emp): ?>
           <option value="<?php echo (int) $emp['id']; ?>" <?php echo $selectedUserId === (int) $emp['id'] ? 'selected' : ''; ?>><?php echo htmlspecialchars($emp['name']); ?></option>
         <?php endforeach; ?>
