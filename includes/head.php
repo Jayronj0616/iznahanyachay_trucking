@@ -12,7 +12,7 @@ if (!isset($pageTitle)) {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title><?php echo htmlspecialchars($pageTitle); ?> · Iznahanyachay Trucking Services</title>
-<link rel="icon" type="image/png" href="<?php echo BASE_PATH; ?>/assets/images/logo.png">
+<link rel="icon" type="image/png" href="<?php echo BASE_PATH; ?>/assets/images/logo.png?v=<?php echo filemtime(__DIR__ . '/../assets/images/logo.png'); ?>">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
