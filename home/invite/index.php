@@ -93,20 +93,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <div class="bg-gray-50 dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-xl p-6">
     <form method="POST" data-confirm="Create this employee account?" class="space-y-4">
       <div>
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Full Name</label>
-        <input type="text" name="name" value="<?php echo htmlspecialchars($_POST['name'] ?? ''); ?>" required class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
+        <label for="invite-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Full Name</label>
+        <input id="invite-name" type="text" name="name" value="<?php echo htmlspecialchars($_POST['name'] ?? ''); ?>" required class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
       </div>
       <div>
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
-        <input type="email" name="email" value="<?php echo htmlspecialchars($_POST['email'] ?? ''); ?>" required class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
+        <label for="invite-email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+        <input id="invite-email" type="email" name="email" value="<?php echo htmlspecialchars($_POST['email'] ?? ''); ?>" required class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
       </div>
       <div>
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Temporary Password</label>
-        <input type="text" name="password" minlength="8" required class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
+        <label for="invite-password" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Temporary Password</label>
+        <input id="invite-password" type="text" name="password" minlength="8" required class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Min 8 characters. Employee should change this after first login (no forced-change flow yet).</p>
       </div>
       <div>
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Position</label>
+        <label for="ts-invite-position" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Position</label>
         <select name="position" id="ts-invite-position" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
           <option value="">— Not set —</option>
           <?php foreach ($positions as $p): ?>
@@ -116,21 +116,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       </div>
       <div id="ts-invite-license-fields" class="space-y-4 hidden">
       <div>
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">License Number</label>
-        <input type="text" name="license_number" value="<?php echo htmlspecialchars($_POST['license_number'] ?? ''); ?>" maxlength="50" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
+        <label for="invite-license-number" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">License Number</label>
+        <input id="invite-license-number" type="text" name="license_number" value="<?php echo htmlspecialchars($_POST['license_number'] ?? ''); ?>" maxlength="50" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
       </div>
       <div>
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">License Expiry</label>
-        <input type="date" name="license_expiry" value="<?php echo htmlspecialchars($_POST['license_expiry'] ?? ''); ?>" style="color-scheme: light;" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
+        <label for="invite-license-expiry" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">License Expiry</label>
+        <input id="invite-license-expiry" type="date" name="license_expiry" value="<?php echo htmlspecialchars($_POST['license_expiry'] ?? ''); ?>" style="color-scheme: light;" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
       </div>
       </div>
       <div>
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Hire Date</label>
-        <input type="date" name="hire_date" value="<?php echo htmlspecialchars($_POST['hire_date'] ?? ''); ?>" style="color-scheme: light;" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
+        <label for="invite-hire-date" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Hire Date</label>
+        <input id="invite-hire-date" type="date" name="hire_date" value="<?php echo htmlspecialchars($_POST['hire_date'] ?? ''); ?>" style="color-scheme: light;" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
       </div>
       <div>
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
-        <select name="status" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
+        <label for="invite-status" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+        <select id="invite-status" name="status" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
           <option value="active" <?php echo ($_POST['status'] ?? 'active') === 'active' ? 'selected' : ''; ?>>Active</option>
           <option value="inactive" <?php echo ($_POST['status'] ?? '') === 'inactive' ? 'selected' : ''; ?>>Inactive</option>
         </select>

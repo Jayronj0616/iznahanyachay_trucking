@@ -189,15 +189,15 @@ $positionLabels = [
     <form method="POST" data-confirm="Save changes to this employee's record?" class="space-y-4">
       <input type="hidden" name="user_id" id="ts-edit-user-id">
       <div>
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Full Name</label>
+        <label for="ts-edit-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Full Name</label>
         <input type="text" name="name" id="ts-edit-name" required class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
       </div>
       <div>
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+        <label for="ts-edit-email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
         <input type="email" name="email" id="ts-edit-email" required class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
       </div>
       <div>
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Position</label>
+        <label for="ts-edit-position" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Position</label>
         <select name="position" id="ts-edit-position" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
           <option value="">— Not set —</option>
           <?php foreach ($positions as $p): ?>
@@ -206,25 +206,25 @@ $positionLabels = [
         </select>
       </div>
       <div>
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Monthly Salary (₱)</label>
+        <label for="ts-edit-monthly-salary" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Monthly Salary (₱)</label>
         <input type="number" name="monthly_salary" id="ts-edit-monthly-salary" step="0.01" min="0.01" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
       </div>
       <div id="ts-edit-license-fields" class="space-y-4 hidden">
       <div>
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">License Number</label>
+        <label for="ts-edit-license-number" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">License Number</label>
         <input type="text" name="license_number" id="ts-edit-license-number" maxlength="50" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
       </div>
       <div>
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">License Expiry</label>
+        <label for="ts-edit-license-expiry" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">License Expiry</label>
         <input type="date" name="license_expiry" id="ts-edit-license-expiry" style="color-scheme: light;" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
       </div>
       </div>
       <div>
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Hire Date</label>
+        <label for="ts-edit-hire-date" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Hire Date</label>
         <input type="date" name="hire_date" id="ts-edit-hire-date" style="color-scheme: light;" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
       </div>
       <div>
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+        <label for="ts-edit-status" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
         <select name="status" id="ts-edit-status" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
