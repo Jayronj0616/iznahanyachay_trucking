@@ -20,6 +20,12 @@
   <div class="absolute inset-0 bg-gradient-to-br from-white via-orange-50 to-white dark:from-surface dark:via-[#0F1830] dark:to-[#1A0F08]"></div>
   <div class="absolute inset-0 opacity-30" style="background-image: radial-gradient(circle at 20% 30%, rgba(251,191,36,0.15), transparent 40%), radial-gradient(circle at 80% 70%, rgba(249,115,22,0.12), transparent 45%);"></div>
 
+  <!-- Client-requested: company logo on both sides of the hero. Only shown from xl (1280px)
+       up, where the centered max-w-5xl content actually leaves enough side margin (128px+)
+       to not collide with it; sized to grow with the available margin at larger widths. -->
+  <img src="<?php echo BASE_PATH; ?>/assets/images/logo.png" alt="Iznahanyachay Trucking Services logo" class="hidden xl:block absolute left-6 2xl:left-12 top-1/2 -translate-y-1/2 w-28 2xl:w-40 opacity-90">
+  <img src="<?php echo BASE_PATH; ?>/assets/images/logo.png" alt="" aria-hidden="true" class="hidden xl:block absolute right-6 2xl:right-12 top-1/2 -translate-y-1/2 w-28 2xl:w-40 opacity-90">
+
   <div class="relative max-w-5xl mx-auto px-6 py-24 text-center">
     <h1 class="text-4xl sm:text-5xl md:text-6xl font-extrabold text-gray-900 dark:text-white leading-tight">
       Payroll and Attendance,<br>
