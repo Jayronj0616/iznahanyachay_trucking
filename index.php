@@ -34,19 +34,19 @@
 
     <div class="mt-16 grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-3xl mx-auto">
       <div class="bg-white dark:bg-surface-card/80 border border-gray-200 dark:border-surface-border rounded-xl px-4 py-5 shadow-sm dark:shadow-none">
-        <div class="text-orange-600 dark:text-brand-yellow text-lg font-extrabold">Automated</div>
+        <div class="text-orange-600 dark:text-brand-yellow text-lg font-extrabold min-h-[3.5rem]">Automated</div>
         <div class="text-gray-600 dark:text-gray-300 text-sm mt-1">Payroll</div>
       </div>
       <div class="bg-white dark:bg-surface-card/80 border border-gray-200 dark:border-surface-border rounded-xl px-4 py-5 shadow-sm dark:shadow-none">
-        <div class="text-orange-600 dark:text-brand-yellow text-lg font-extrabold">Trip-Based</div>
+        <div class="text-orange-600 dark:text-brand-yellow text-lg font-extrabold min-h-[3.5rem]">Trip-Based</div>
         <div class="text-gray-600 dark:text-gray-300 text-sm mt-1">Attendance</div>
       </div>
       <div class="bg-white dark:bg-surface-card/80 border border-gray-200 dark:border-surface-border rounded-xl px-4 py-5 shadow-sm dark:shadow-none">
-        <div class="text-orange-600 dark:text-brand-yellow text-lg font-extrabold">Driver &amp; Helper</div>
+        <div class="text-orange-600 dark:text-brand-yellow text-lg font-extrabold min-h-[3.5rem]">Driver &amp; Helper</div>
         <div class="text-gray-600 dark:text-gray-300 text-sm mt-1">Commission Tracking</div>
       </div>
       <div class="bg-white dark:bg-surface-card/80 border border-gray-200 dark:border-surface-border rounded-xl px-4 py-5 shadow-sm dark:shadow-none">
-        <div class="text-orange-600 dark:text-brand-yellow text-lg font-extrabold">Admin-Controlled</div>
+        <div class="text-orange-600 dark:text-brand-yellow text-lg font-extrabold min-h-[3.5rem]">Admin-Controlled</div>
         <div class="text-gray-600 dark:text-gray-300 text-sm mt-1">Account Access</div>
       </div>
     </div>

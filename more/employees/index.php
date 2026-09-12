@@ -108,7 +108,7 @@ $positionLabels = [
 ];
 ?>
 
-<main class="max-w-3xl mx-auto w-full px-4 pb-32 pt-4 sm:px-6 space-y-6">
+<main class="max-w-6xl mx-auto w-full px-4 pb-32 pt-4 sm:px-6 space-y-6">
   <h1 class="text-xl font-bold text-gray-900 dark:text-white">Employees</h1>
 
   <?php if ($error): ?>
