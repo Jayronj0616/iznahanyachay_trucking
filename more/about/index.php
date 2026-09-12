@@ -16,7 +16,7 @@ include __DIR__ . '/../../includes/topbar.php';
 
   <div class="bg-gray-50 dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-xl p-6 space-y-4">
     <div>
-      <div class="text-sm font-semibold text-gray-900 dark:text-white">Trucking System</div>
+      <div class="text-sm font-semibold text-gray-900 dark:text-white">Iznahanyachay Trucking Services</div>
       <div class="text-sm text-gray-500 dark:text-gray-400 mt-1">
         Attendance, timesheet approval, driver/helper trip commission, and payroll for a small trucking fleet.
       </div>

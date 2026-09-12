@@ -4,7 +4,7 @@
 <!-- Navbar -->
 <header class="fixed top-0 left-0 right-0 z-30 bg-white/95 dark:bg-surface/95 backdrop-blur border-b border-gray-200 dark:border-surface-border">
   <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-    <span class="text-orange-600 dark:text-brand-yellow font-extrabold tracking-wide text-lg">TRUCKING SYSTEM</span>
+    <span class="text-orange-600 dark:text-brand-yellow font-extrabold tracking-wide text-lg">IZNAHANYACHAY</span>
     <div class="flex items-center gap-3">
       <?php include __DIR__ . '/includes/theme-toggle.php'; ?>
       <a href="<?php echo BASE_PATH; ?>/login/" class="bg-orange-500 dark:bg-brand-yellow text-white dark:text-surface font-semibold text-sm px-5 py-2.5 rounded-full hover:opacity-90 transition">

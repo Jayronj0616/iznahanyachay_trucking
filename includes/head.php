@@ -3,7 +3,7 @@ require_once __DIR__ . '/config.php';
 
 // Expects $pageTitle to be set by the including page. Falls back if not set.
 if (!isset($pageTitle)) {
-    $pageTitle = 'Trucking System';
+    $pageTitle = 'Iznahanyachay Trucking Services';
 }
 ?>
 <!DOCTYPE html>
@@ -11,7 +11,7 @@ if (!isset($pageTitle)) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title><?php echo htmlspecialchars($pageTitle); ?> · Trucking System</title>
+<title><?php echo htmlspecialchars($pageTitle); ?> · Iznahanyachay Trucking Services</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
