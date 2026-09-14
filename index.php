@@ -32,8 +32,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email'])) {
 <header class="fixed top-0 left-0 right-0 z-30 bg-white/95 dark:bg-surface/95 backdrop-blur border-b border-gray-200 dark:border-surface-border">
   <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
     <span class="flex items-center gap-2 min-w-0">
-      <img src="<?php echo BASE_PATH; ?>/assets/images/logo.png" alt="Iznahanyachay Trucking Services" class="h-9 w-9 rounded-full shrink-0">
-      <span class="hidden sm:inline text-orange-600 dark:text-brand-yellow font-extrabold tracking-wide text-lg truncate">IZNAHANYACHAY</span>
+      <img src="<?php echo BASE_PATH; ?>/assets/images/logo.png" alt="Iznahanyachay Trucking Services" class="h-9 w-9 sm:h-11 sm:w-11 lg:h-14 lg:w-14 rounded-full shrink-0">
+      <span class="hidden sm:inline text-orange-600 dark:text-brand-yellow font-extrabold tracking-wide text-lg lg:text-xl truncate">IZNAHANYACHAY</span>
     </span>
     <div class="flex items-center gap-3">
       <?php include __DIR__ . '/includes/theme-toggle.php'; ?>
