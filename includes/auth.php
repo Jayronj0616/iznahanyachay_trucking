@@ -14,6 +14,13 @@ function requireLogin(): void {
         header('Location: ' . BASE_PATH . '/login/');
         exit;
     }
+
+    $changePasswordPath = BASE_PATH . '/more/change-password/';
+    $onChangePasswordPage = strpos($_SERVER['REQUEST_URI'], $changePasswordPath) === 0;
+    if (!empty($_SESSION['user']['must_change_password']) && !$onChangePasswordPage) {
+        header('Location: ' . $changePasswordPath);
+        exit;
+    }
 }
 
 function requireAdmin(): void {
@@ -25,7 +32,7 @@ function requireAdmin(): void {
 }
 
 function attemptLogin(string $email, string $password, ?string &$failReason = null): bool {
-    $stmt = getDB()->prepare('SELECT id, name, email, password, role FROM users WHERE email = ?');
+    $stmt = getDB()->prepare('SELECT id, name, email, password, role, must_change_password FROM users WHERE email = ?');
     $stmt->execute([$email]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -49,6 +56,7 @@ function attemptLogin(string $email, string $password, ?string &$failReason = nu
         'name' => $user['name'],
         'email' => $user['email'],
         'role' => $user['role'],
+        'must_change_password' => (bool) $user['must_change_password'],
     ];
     return true;
 }

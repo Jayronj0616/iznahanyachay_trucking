@@ -53,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $db->beginTransaction();
         try {
-            $stmt = $db->prepare('INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)');
+            $stmt = $db->prepare('INSERT INTO users (name, email, password, role, must_change_password) VALUES (?, ?, ?, ?, 1)');
             $stmt->execute([$name, $email, password_hash($password, PASSWORD_DEFAULT), 'employee']);
             $newUserId = (int) $db->lastInsertId();
 
@@ -103,7 +103,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <div>
         <label for="invite-password" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Temporary Password</label>
         <input id="invite-password" type="text" name="password" minlength="8" required class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
-        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Min 8 characters. Employee should change this after first login (no forced-change flow yet).</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Min 8 characters. The employee will be required to set their own password on first login.</p>
       </div>
       <div>
         <label for="ts-invite-position" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Position</label>
