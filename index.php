@@ -53,8 +53,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email'])) {
   <!-- Client-requested: company logo on both sides of the hero. Only shown from xl (1280px)
        up, where the centered max-w-5xl content actually leaves enough side margin (128px+)
        to not collide with it; sized to grow with the available margin at larger widths. -->
-  <img src="<?php echo BASE_PATH; ?>/assets/images/logo.png" alt="Iznahanyachay Trucking Services logo" class="hidden xl:block absolute left-6 2xl:left-12 top-1/2 -translate-y-1/2 w-28 2xl:w-40 opacity-90">
-  <img src="<?php echo BASE_PATH; ?>/assets/images/logo.png" alt="" aria-hidden="true" class="hidden xl:block absolute right-6 2xl:right-12 top-1/2 -translate-y-1/2 w-28 2xl:w-40 opacity-90">
+  <img src="<?php echo BASE_PATH; ?>/assets/images/logo.png" alt="Iznahanyachay Trucking Services logo" class="hidden xl:block absolute left-6 2xl:left-12 top-1/2 -translate-y-1/2 w-40 2xl:w-56 opacity-90">
+  <img src="<?php echo BASE_PATH; ?>/assets/images/logo.png" alt="" aria-hidden="true" class="hidden xl:block absolute right-6 2xl:right-12 top-1/2 -translate-y-1/2 w-40 2xl:w-56 opacity-90">
 
   <div class="relative max-w-5xl mx-auto px-6 py-24 text-center">
     <h1 class="text-4xl sm:text-5xl md:text-6xl font-extrabold text-gray-900 dark:text-white leading-tight">
