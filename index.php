@@ -50,20 +50,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email'])) {
   <div class="absolute inset-0 bg-gradient-to-br from-white via-orange-50 to-white dark:from-surface dark:via-[#0F1830] dark:to-[#1A0F08]"></div>
   <div class="absolute inset-0 opacity-30" style="background-image: radial-gradient(circle at 20% 30%, rgba(251,191,36,0.15), transparent 40%), radial-gradient(circle at 80% 70%, rgba(249,115,22,0.12), transparent 45%);"></div>
 
-  <!-- Client-requested: company logo on both sides of the hero. Only shown from xl (1280px)
-       up, where the centered max-w-5xl content actually leaves enough side margin (128px+)
-       to not collide with it; sized to grow with the available margin at larger widths. -->
-  <img src="<?php echo BASE_PATH; ?>/assets/images/logo.png" alt="Iznahanyachay Trucking Services logo" class="hidden xl:block absolute left-6 2xl:left-12 top-1/2 -translate-y-1/2 w-40 2xl:w-56 opacity-90">
-  <img src="<?php echo BASE_PATH; ?>/assets/images/logo.png" alt="" aria-hidden="true" class="hidden xl:block absolute right-6 2xl:right-12 top-1/2 -translate-y-1/2 w-40 2xl:w-56 opacity-90">
+  <!-- Client-requested: replaced the two side logos with a single faded watermark
+       logo centered behind the headline. Sized to stay tucked behind just the
+       title, desaturated + very low opacity so the logo's own bright colors
+       don't compete with the heading or the cards below it. -->
+  <img src="<?php echo BASE_PATH; ?>/assets/images/logo.png" alt="" aria-hidden="true" class="absolute left-1/2 top-[38%] sm:top-1/2 -translate-x-1/2 -translate-y-1/2 w-52 sm:w-64 lg:w-72 opacity-[0.07] dark:opacity-[0.1] grayscale pointer-events-none select-none">
 
   <div class="relative max-w-5xl mx-auto px-6 py-24 text-center">
-    <h1 class="text-4xl sm:text-5xl md:text-6xl font-extrabold text-gray-900 dark:text-white leading-tight">
-      Payroll and Attendance,<br>
-      <span class="text-orange-600 dark:text-brand-yellow">Automated</span> for Your Fleet.
+    <h1 class="text-5xl sm:text-6xl md:text-7xl font-extrabold text-gray-900 dark:text-white leading-tight">
+      <span class="text-orange-600 dark:text-brand-yellow">Iznahanyachay</span>
     </h1>
-    <p class="mt-6 text-gray-600 dark:text-gray-300 text-base sm:text-lg max-w-2xl mx-auto">
-      Trip-based attendance, driver and helper commission payroll, and employee management — all in one internal system.
-    </p>
     <button type="button" onclick="openLoginModal()" class="inline-block mt-8 bg-orange-500 dark:bg-brand-yellow text-white dark:text-surface font-bold px-8 py-3.5 rounded-full hover:opacity-90 transition">
       Get Started
     </button>
