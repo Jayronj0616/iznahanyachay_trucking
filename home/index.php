@@ -13,51 +13,79 @@ include __DIR__ . '/../includes/topbar.php';
 $db = getDB();
 $userId = (int) $_SESSION['user']['id'];
 $today = date('Y-m-d');
-
-// This month's timesheet summary — same regular/OT split logic as payroll/index.php (>8h/day = OT)
 $monthStart = date('Y-m-01');
 $monthEnd = date('Y-m-t');
-$stmt = $db->prepare(
-    'SELECT date, time_in, time_out FROM timesheet_entries
-     WHERE user_id = ? AND date BETWEEN ? AND ?'
-);
-$stmt->execute([$userId, $monthStart, $monthEnd]);
-$monthEntries = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+$stmt = $db->prepare('SELECT position FROM employee_profiles WHERE user_id = ?');
+$stmt->execute([$userId]);
+$position = $stmt->fetchColumn() ?: null;
+
+// Driver/helper are trip-commission-only and never punch a timesheet — the weekday
+// present/absent math below only means something for hourly employees.
+$isHourly = $position !== null && !in_array($position, ['driver', 'helper'], true);
+
+$daysWithEntry = [];
 $regularHours = 0.0;
 $otHours = 0.0;
-$daysWithEntry = [];
-foreach ($monthEntries as $e) {
-    $daysWithEntry[$e['date']] = true;
-    if (!$e['time_in'] || !$e['time_out']) {
-        continue;
-    }
-    $hours = max(0, (strtotime($e['time_out']) - strtotime($e['time_in'])) / 3600);
-    if ($hours > 8) {
-        $regularHours += 8;
-        $otHours += $hours - 8;
-    } else {
-        $regularHours += $hours;
-    }
-}
-
-// Days absent = weekdays elapsed this month (up to today) with no entry row at all.
-// ASSUMPTION: weekday-only, no holiday calendar exists yet — will overcount on holidays.
 $daysAbsent = 0;
-$dayCursor = strtotime($monthStart);
-$todayTs = strtotime($today);
-while ($dayCursor <= $todayTs) {
-    $dow = (int) date('N', $dayCursor); // 1=Mon .. 7=Sun
-    $dateStr = date('Y-m-d', $dayCursor);
-    if ($dow < 6 && !isset($daysWithEntry[$dateStr])) {
-        $daysAbsent++;
+
+if ($isHourly) {
+    // This month's timesheet summary — same regular/OT split logic as payroll/index.php (>8h/day = OT)
+    $stmt = $db->prepare(
+        'SELECT date, time_in, time_out FROM timesheet_entries
+         WHERE user_id = ? AND date BETWEEN ? AND ?'
+    );
+    $stmt->execute([$userId, $monthStart, $monthEnd]);
+    $monthEntries = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($monthEntries as $e) {
+        $daysWithEntry[$e['date']] = true;
+        if (!$e['time_in'] || !$e['time_out']) {
+            continue;
+        }
+        $hours = max(0, (strtotime($e['time_out']) - strtotime($e['time_in'])) / 3600);
+        if ($hours > 8) {
+            $regularHours += 8;
+            $otHours += $hours - 8;
+        } else {
+            $regularHours += $hours;
+        }
     }
-    $dayCursor = strtotime('+1 day', $dayCursor);
+
+    // Days absent = weekdays elapsed this month (up to today) with no entry row at all.
+    // ASSUMPTION: weekday-only, no holiday calendar exists yet — will overcount on holidays.
+    $dayCursor = strtotime($monthStart);
+    $todayTs = strtotime($today);
+    while ($dayCursor <= $todayTs) {
+        $dow = (int) date('N', $dayCursor); // 1=Mon .. 7=Sun
+        $dateStr = date('Y-m-d', $dayCursor);
+        if ($dow < 6 && !isset($daysWithEntry[$dateStr])) {
+            $daysAbsent++;
+        }
+        $dayCursor = strtotime('+1 day', $dayCursor);
+    }
 }
 
 // No leave table exists yet — do not fabricate numbers, show as not-yet-tracked.
 $paidLeaveHours = null;
 $unpaidLeaveHours = null;
+
+$tripCount = 0;
+$tripIncentiveTotal = 0.0;
+if (!$isHourly && $position !== null) {
+    // Driver/helper: this month's completed-trip commission, same rate logic as payroll/index.php.
+    $column = $position === 'driver' ? 'driver_id' : 'helper_id';
+    $rate = $position === 'driver' ? 0.15 : 0.08;
+    $stmt = $db->prepare(
+        "SELECT COUNT(*) AS trip_count, COALESCE(SUM(amount_per_trip), 0) AS trip_sum
+         FROM trips_new
+         WHERE $column = ? AND status = 'completed' AND DATE(completed_at) BETWEEN ? AND ?"
+    );
+    $stmt->execute([$userId, $monthStart, $monthEnd]);
+    $tripRow = $stmt->fetch(PDO::FETCH_ASSOC);
+    $tripCount = (int) $tripRow['trip_count'];
+    $tripIncentiveTotal = round((float) $tripRow['trip_sum'] * $rate, 2);
+}
 
 // Real payroll history, newest period first (last 6 runs, any status)
 $stmt = $db->prepare(
@@ -88,6 +116,7 @@ $recentRuns = $stmt->fetchAll(PDO::FETCH_ASSOC);
   </a>
   <?php endif; ?>
 
+  <?php if ($isHourly): ?>
   <div>
     <div class="flex items-center justify-between mb-3">
       <h2 class="text-lg font-bold text-gray-900 dark:text-white">Timesheet</h2>
@@ -104,6 +133,20 @@ $recentRuns = $stmt->fetchAll(PDO::FETCH_ASSOC);
       <div><div class="text-xs text-gray-500 dark:text-gray-400">Unpaid Leave</div><div class="font-bold text-gray-400 dark:text-gray-500 mt-1 text-xs">Not tracked</div></div>
     </div>
   </div>
+  <?php elseif ($position !== null): ?>
+  <div>
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-lg font-bold text-gray-900 dark:text-white">Trips</h2>
+      <span class="text-sm text-gray-500 dark:text-gray-400 font-medium">
+        <?php echo date('j M', strtotime($monthStart)) . ' - ' . date('j M Y', strtotime($monthEnd)); ?>
+      </span>
+    </div>
+    <div class="bg-white dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-xl px-5 py-4 grid grid-cols-2 gap-y-4 text-center">
+      <div><div class="text-xs text-gray-500 dark:text-gray-400">Completed Trips</div><div class="font-bold text-gray-900 dark:text-white mt-1"><?php echo $tripCount; ?></div></div>
+      <div><div class="text-xs text-gray-500 dark:text-gray-400">Trip Incentive</div><div class="font-bold text-gray-900 dark:text-white mt-1">₱<?php echo number_format($tripIncentiveTotal, 2); ?></div></div>
+    </div>
+  </div>
+  <?php endif; ?>
 
   <div>
     <div class="flex items-center justify-between mb-3">

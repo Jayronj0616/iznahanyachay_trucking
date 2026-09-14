@@ -43,12 +43,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $validHelper = (bool) $stmt->fetch();
         }
 
+        $stmt = $db->prepare(
+            "SELECT id FROM trips_new WHERE status = 'assigned' AND (driver_id = ? OR helper_id = ? OR driver_id = ? OR helper_id = ?)"
+        );
+        $stmt->execute([$driverId, $driverId, $helperId, $helperId]);
+        $driverOrHelperBusy = (bool) $stmt->fetch();
+
         if (!$route) {
             $error = 'Please select a valid active route.';
         } elseif (!$validDriver) {
             $error = 'Please select a valid active driver.';
         } elseif (!$validHelper) {
             $error = 'Please select a valid active helper.';
+        } elseif ($driverOrHelperBusy) {
+            $error = 'The selected driver or helper already has a trip in progress. Mark it completed first.';
         } else {
             $stmt = $db->prepare(
                 'INSERT INTO trips_new (route_id, driver_id, helper_id, amount_per_trip, status, started_at)
