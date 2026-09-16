@@ -106,11 +106,6 @@ foreach ($entries as $entry) {
   </div>
 
   <div class="bg-gray-50 dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-xl p-6">
-    <h2 class="text-gray-900 dark:text-white font-bold mb-1">Scan QR (Auto Time In/Out)</h2>
-    <p class="text-gray-500 dark:text-gray-400 text-sm">Waiting for scan...</p>
-  </div>
-
-  <div class="bg-gray-50 dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-xl p-6">
     <h2 class="text-gray-900 dark:text-white font-bold mb-4">Records (This Month)</h2>
     <?php if (empty($entries)): ?>
       <p class="text-gray-500 dark:text-gray-400 text-sm">No entries yet this month.</p>
