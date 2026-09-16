@@ -50,7 +50,7 @@ include __DIR__ . '/../includes/topbar.php';
       <span class="text-xl">📅</span>
       <span>
         <span class="block font-semibold text-gray-900 dark:text-white">Trip Attendance</span>
-        <span class="block text-sm text-gray-500 dark:text-gray-400">Auto-recorded attendance from completed trips</span>
+        <span class="block text-sm text-gray-500 dark:text-gray-400">Attendance recorded when trips are accepted</span>
       </span>
     </a>
     <?php endif; ?>

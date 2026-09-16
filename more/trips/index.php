@@ -41,6 +41,8 @@ function tripIsValidHelper(PDO $db, ?int $helperId): bool {
     return (bool) $stmt->fetch();
 }
 
+// Only 'assigned' counts as busy — once a trip is 'delivered' the driver/helper are physically
+// free to take the next run, even though an admin hasn't accepted the delivery for payment yet.
 // Excludes $excludeTripId so editing a trip doesn't flag its own current driver/helper as "busy".
 function tripDriverOrHelperBusy(PDO $db, int $driverId, ?int $helperId, ?int $excludeTripId = null): bool {
     $sql = "SELECT id FROM trips_new WHERE status = 'assigned' AND (driver_id = ? OR helper_id = ? OR driver_id = ? OR helper_id = ?)";
@@ -74,7 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif (!$validHelper) {
             $error = 'Please select a valid active helper.';
         } elseif ($driverOrHelperBusy) {
-            $error = 'The selected driver or helper already has a trip in progress. Mark it completed first.';
+            $error = 'The selected driver or helper already has a trip in progress. Mark it delivered first.';
         } else {
             $stmt = $db->prepare(
                 'INSERT INTO trips_new (route_id, driver_id, helper_id, amount_per_trip, status, started_at)
@@ -109,6 +111,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($driverOrHelperBusy) {
             $error = 'The selected driver or helper already has another trip in progress.';
         } else {
+            // Re-snapshots amount_per_trip from the (possibly new) route. Only reachable while
+            // the trip is still 'assigned' — a delivered trip must be returned to in-progress first.
             $stmt = $db->prepare(
                 "UPDATE trips_new SET route_id = ?, driver_id = ?, helper_id = ?, amount_per_trip = ?
                  WHERE id = ? AND status = 'assigned'"
@@ -118,41 +122,85 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } elseif ($action === 'cancel') {
         $tripId = (int) ($_POST['trip_id'] ?? 0);
-        $stmt = $db->prepare("UPDATE trips_new SET status = 'cancelled', cancelled_at = NOW() WHERE id = ? AND status = 'assigned'");
+        // Cancellable right up until acceptance — a delivery the admin refuses outright is a
+        // cancellation, not a completion, so it still writes no attendance and never gets paid.
+        $stmt = $db->prepare(
+            "UPDATE trips_new SET status = 'cancelled', cancelled_at = NOW()
+             WHERE id = ? AND status IN ('assigned', 'delivered')"
+        );
         $stmt->execute([$tripId]);
         if ($stmt->rowCount() > 0) {
             $success = 'Trip cancelled.';
         } else {
             $error = 'This trip can no longer be cancelled (already completed, cancelled, or not found).';
         }
+    } elseif ($action === 'deliver') {
+        // Step 1 of 2: the driver has reported the run finished. Records the report only —
+        // no attendance, no payroll eligibility. Both of those wait for 'complete' below.
+        $tripId = (int) ($_POST['trip_id'] ?? 0);
+        $stmt = $db->prepare(
+            "UPDATE trips_new SET status = 'delivered', delivered_at = NOW()
+             WHERE id = ? AND status = 'assigned'"
+        );
+        $stmt->execute([$tripId]);
+        if ($stmt->rowCount() > 0) {
+            $success = 'Trip marked delivered. It needs admin acceptance before it is paid.';
+        } else {
+            $error = 'This trip can no longer be marked delivered (already delivered, completed, cancelled, or not found).';
+        }
+    } elseif ($action === 'revert') {
+        // Delivery reported in error, or the trip needs editing — send it back to in-progress.
+        // Safe to reverse because 'delivered' created no attendance rows and paid nothing.
+        $tripId = (int) ($_POST['trip_id'] ?? 0);
+        $stmt = $db->prepare(
+            "UPDATE trips_new SET status = 'assigned', delivered_at = NULL
+             WHERE id = ? AND status = 'delivered'"
+        );
+        $stmt->execute([$tripId]);
+        if ($stmt->rowCount() > 0) {
+            $success = 'Trip returned to in-progress.';
+        } else {
+            $error = 'This trip cannot be returned to in-progress (not awaiting acceptance, or not found).';
+        }
     } elseif ($action === 'complete') {
+        // Step 2 of 2: admin accepts the delivery. THIS is the step that writes attendance and
+        // makes the trip payable — deliberately separated from the driver's delivery report, so
+        // no single click both closes a trip and commits the company to paying commission on it.
+        // Mirrors timesheet_entries (pending -> approved, payroll counts approved only).
         $tripId = (int) ($_POST['trip_id'] ?? 0);
 
         $db->beginTransaction();
         try {
-            $stmt = $db->prepare("SELECT driver_id, helper_id FROM trips_new WHERE id = ? AND status = 'assigned' FOR UPDATE");
+            $stmt = $db->prepare("SELECT driver_id, helper_id, delivered_at FROM trips_new WHERE id = ? AND status = 'delivered' FOR UPDATE");
             $stmt->execute([$tripId]);
             $trip = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$trip) {
                 $db->rollBack();
-                $success = 'Trip was already completed or not found.';
+                $error = 'This trip cannot be accepted — it must be marked delivered first, or it was already accepted.';
             } else {
-                $stmt = $db->prepare("UPDATE trips_new SET status = 'completed', completed_at = NOW() WHERE id = ? AND status = 'assigned'");
+                $stmt = $db->prepare("UPDATE trips_new SET status = 'completed', completed_at = NOW() WHERE id = ? AND status = 'delivered'");
                 $stmt->execute([$tripId]);
 
-                $stmt = $db->prepare('INSERT INTO trip_attendance (trip_id, user_id, role, date) VALUES (?, ?, ?, CURDATE())');
-                $stmt->execute([$tripId, $trip['driver_id'], 'driver']);
+                // Attendance is dated by the DELIVERY, not by this acceptance — presence records the
+                // day the crew actually ran the route. An admin accepting three days late must not
+                // move a driver's attendance onto a day he didn't work.
+                $attendanceDate = $trip['delivered_at'] !== null
+                    ? date('Y-m-d', strtotime($trip['delivered_at']))
+                    : date('Y-m-d');
+
+                $stmt = $db->prepare('INSERT INTO trip_attendance (trip_id, user_id, role, date) VALUES (?, ?, ?, ?)');
+                $stmt->execute([$tripId, $trip['driver_id'], 'driver', $attendanceDate]);
                 if ($trip['helper_id'] !== null) {
-                    $stmt->execute([$tripId, $trip['helper_id'], 'helper']);
+                    $stmt->execute([$tripId, $trip['helper_id'], 'helper', $attendanceDate]);
                 }
 
                 $db->commit();
-                $success = 'Trip marked completed.';
+                $success = 'Trip accepted. Attendance recorded and the trip is now payable.';
             }
         } catch (PDOException $e) {
             $db->rollBack();
-            $error = 'Failed to mark trip completed: ' . $e->getMessage();
+            $error = 'Failed to accept trip: ' . $e->getMessage();
         }
     }
 }
@@ -259,12 +307,21 @@ $trips = $db->query(
                   <?php
                     $statusClasses = [
                         'completed' => 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400',
+                        'delivered' => 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400',
                         'assigned' => 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400',
                         'cancelled' => 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400',
                     ];
+                    // 'completed' is the admin's acceptance, so label it as such — "Completed" alone
+                    // reads like the driver finished, which is what 'delivered' now means.
+                    $statusLabels = [
+                        'completed' => 'Accepted',
+                        'delivered' => 'Awaiting acceptance',
+                        'assigned' => 'In progress',
+                        'cancelled' => 'Cancelled',
+                    ];
                   ?>
                   <span class="inline-block text-xs font-semibold px-2 py-1 rounded-full <?php echo $statusClasses[$trip['status']]; ?>">
-                    <?php echo ucfirst($trip['status']); ?>
+                    <?php echo htmlspecialchars($statusLabels[$trip['status']]); ?>
                   </span>
                 </td>
                 <td class="py-2">
@@ -278,10 +335,28 @@ $trips = $db->query(
                         data-driver-id="<?php echo (int) $trip['driver_id']; ?>"
                         data-helper-id="<?php echo (int) ($trip['helper_id'] ?? 0); ?>"
                       >Edit</button>
-                      <form method="POST" data-confirm="Mark this trip as completed?">
+                      <form method="POST" data-confirm="Mark this trip as delivered? It still needs your acceptance before it is paid.">
+                        <input type="hidden" name="action" value="deliver">
+                        <input type="hidden" name="trip_id" value="<?php echo (int) $trip['id']; ?>">
+                        <button type="submit" class="bg-brand-orange text-white text-xs font-semibold px-3 py-1.5 rounded-full hover:opacity-90 transition">Mark Delivered</button>
+                      </form>
+                      <form method="POST" data-confirm="Cancel this trip? This cannot be undone.">
+                        <input type="hidden" name="action" value="cancel">
+                        <input type="hidden" name="trip_id" value="<?php echo (int) $trip['id']; ?>">
+                        <button type="submit" class="bg-red-600 text-white text-xs font-semibold px-3 py-1.5 rounded-full hover:opacity-90 transition">Cancel</button>
+                      </form>
+                    </div>
+                  <?php elseif ($trip['status'] === 'delivered'): ?>
+                    <div class="flex gap-2">
+                      <form method="POST" data-confirm="Accept this trip? This records attendance and makes it payable.">
                         <input type="hidden" name="action" value="complete">
                         <input type="hidden" name="trip_id" value="<?php echo (int) $trip['id']; ?>">
-                        <button type="submit" class="bg-brand-orange text-white text-xs font-semibold px-3 py-1.5 rounded-full hover:opacity-90 transition">Complete</button>
+                        <button type="submit" class="bg-green-600 text-white text-xs font-semibold px-3 py-1.5 rounded-full hover:opacity-90 transition">Accept</button>
+                      </form>
+                      <form method="POST" data-confirm="Return this trip to in-progress?">
+                        <input type="hidden" name="action" value="revert">
+                        <input type="hidden" name="trip_id" value="<?php echo (int) $trip['id']; ?>">
+                        <button type="submit" class="bg-gray-600 text-white text-xs font-semibold px-3 py-1.5 rounded-full hover:opacity-90 transition">Return</button>
                       </form>
                       <form method="POST" data-confirm="Cancel this trip? This cannot be undone.">
                         <input type="hidden" name="action" value="cancel">

@@ -55,7 +55,7 @@ $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 <main class="max-w-3xl mx-auto w-full px-4 pb-32 pt-4 sm:px-6 space-y-6">
   <h1 class="text-xl font-bold text-gray-900 dark:text-white">Trip Attendance</h1>
-  <p class="text-sm text-gray-500 dark:text-gray-400">Automatically recorded when a trip is marked completed. Read-only — presence is verified by trip completion, no approval needed.</p>
+  <p class="text-sm text-gray-500 dark:text-gray-400">Recorded automatically when an admin accepts a delivered trip. Read-only — each row is dated by the delivery, not by when it was accepted.</p>
 
   <form method="GET" class="bg-gray-50 dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-xl p-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
     <div>
