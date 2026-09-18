@@ -54,7 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email'])) {
        logo centered behind the headline. Sized to stay tucked behind just the
        title, desaturated + very low opacity so the logo's own bright colors
        don't compete with the heading or the cards below it. -->
-  <img src="<?php echo BASE_PATH; ?>/assets/images/logo.png" alt="" aria-hidden="true" class="absolute left-1/2 top-[38%] sm:top-1/2 -translate-x-1/2 -translate-y-1/2 w-52 sm:w-64 lg:w-72 opacity-[0.07] dark:opacity-[0.1] grayscale pointer-events-none select-none">
+  <img src="<?php echo BASE_PATH; ?>/assets/images/logo.png" alt="" aria-hidden="true" class="absolute left-1/2 top-[38%] sm:top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 sm:w-96 lg:w-[28rem] opacity-20 dark:opacity-[0.13] grayscale contrast-150 brightness-75 dark:contrast-125 dark:brightness-100 pointer-events-none select-none">
 
   <div class="relative max-w-5xl mx-auto px-6 py-24 text-center">
     <h1 class="text-5xl sm:text-6xl md:text-7xl font-extrabold text-gray-900 dark:text-white leading-tight">
