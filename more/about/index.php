@@ -24,7 +24,7 @@ include __DIR__ . '/../../includes/topbar.php';
     <div class="border-t border-gray-200 dark:border-surface-border pt-4">
       <div class="text-sm font-semibold text-gray-900 dark:text-white mb-2">What this system does</div>
       <ul class="text-sm text-gray-500 dark:text-gray-400 space-y-1.5 list-disc list-inside">
-        <li>Biometric-verified daily time in/out with admin approval</li>
+        <li>Daily time in/out with a photo captured at time in, reviewed on admin approval</li>
         <li>Route, trip assignment, and trip-based attendance for drivers and helpers</li>
         <li>Semi-monthly payroll with real SSS, PhilHealth, and Pag-IBIG government deduction tables</li>
         <li>Employee record management (position, license, hire date, status)</li>

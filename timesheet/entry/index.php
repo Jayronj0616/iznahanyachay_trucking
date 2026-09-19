@@ -48,7 +48,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($date !== date('Y-m-d')) {
             $error = 'Time in can only be recorded for the current date.';
         } elseif (!$isAdmin && !$photoData) {
-            $error = 'A biometric photo capture is required to time in.';
+            // Not "biometric" — nothing is matched against an enrolled record here.
+            // The photo is stored for the admin to review, so say that plainly.
+            $error = 'A photo capture is required to time in.';
         } else {
             $photoPath = null;
             if ($photoData) {
@@ -199,6 +201,14 @@ include __DIR__ . '/../../includes/topbar.php';
       <form method="POST" class="space-y-3" id="time-in-form" data-confirm="Confirm time in now?">
         <input type="time" name="time_in" required value="<?php echo date('H:i'); ?>" style="color-scheme: light;" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-3 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
         <input type="hidden" name="photo_data" id="photo_data" value="">
+
+        <!-- The camera used to switch on with no warning: the button said "Time In"
+             and the webcam just activated. Say what is about to happen, and what the
+             photo is actually for, before asking for the camera. -->
+        <p class="flex gap-2.5 text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-lg px-4 py-3">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 mt-0.5 shrink-0 text-brand-orange"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+          <span>Timing in takes a photo with your camera. It is saved with this entry and shown to the admin when your timesheet is reviewed.</span>
+        </p>
 
         <video id="camera-video" autoplay playsinline class="w-full rounded-lg border border-gray-300 dark:border-surface-border hidden"></video>
         <canvas id="camera-canvas" class="hidden"></canvas>
