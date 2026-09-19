@@ -5,9 +5,10 @@ every function. Each step says which page to open, what to click, and what to ex
 
 Base URL: `http://localhost/trucking_system`
 
-**Verified end-to-end on 2026-09-16.** Every step below was walked in a browser against the live
-database, except the webcam capture in step 27 (needs a real camera). Findings from that pass are
-folded in.
+**Verified end-to-end on 2026-09-16**, then **revised 2026-09-19** after the landing-page rebuild and
+the pre-demo bug sweep. Every step was walked in a browser against the live database on the 16th,
+except the webcam capture in step 27 (needs a real camera). The 19th's changes affect steps 1, 27, 37
+and 40, add step 40b, and **retire one ordering rule that is no longer true** — all marked below.
 
 > ### Read this before you record
 >
@@ -24,8 +25,11 @@ folded in.
 ## Before you start
 
 1. **Apache + MySQL running** in the XAMPP Control Panel. Load the base URL to confirm.
-2. **Migration 023 applied** — `database/migrations/023_trip_delivery_approval.sql`. It adds the
-   `delivered` status the two-step trip flow needs. Without it, every button on the Trips page fails.
+2. **Migrations 023 and 024 applied.**
+   - `023_trip_delivery_approval.sql` adds the `delivered` status the two-step trip flow needs.
+     Without it, every button on the Trips page fails.
+   - `024_timesheet_approval_unique.sql` (new 2026-09-19) stops the same period being approved twice.
+     Both are already applied on the machine this was written on; check before recording elsewhere.
 3. **Camera permission granted to localhost** in the browser, before recording. The permission
    prompt appearing mid-demo is awkward, and the time-in step needs the webcam.
 4. **Demo data — already seeded on 2026-09-16.** The database now has:
@@ -43,9 +47,13 @@ folded in.
    `employee1@trucking.com` (dispatcher) / `DemoUser2026!`. Change these before the system is used
    for real.
 
-5. **Pick a FRESH payroll period for the recording.** September is already run, so clicking Run
-   Payroll on it reports everyone skipped. Seed a new month's entries and approve that period
-   instead, or plan to demo the skip behaviour deliberately.
+5. **Use AUGUST 2026 as the fresh payroll period.** This solves a problem the earlier version of this
+   guide left open. September is already run, so Run Payroll on it reports everyone skipped. As of
+   2026-09-19 the period list also includes months that only contain trip activity, and **August 2026
+   appears as "trips only" and has never been run** — it holds Charles Morales' trip completed
+   2026-08-07, worth ₱900 in commission. Running August live is a clean, honest demo of a real
+   payroll run, and it doubles as a demonstration that commission-only periods are payable.
+   Do not run it before recording, or you lose the moment.
 6. **Two window sizes ready** — full width for the admin tables, about 420px for the employee
    pages. The employee side is built mobile-first with a fixed bottom nav.
 7. Use **throwaway passwords you don't mind saying out loud**. The invite form shows the
@@ -80,8 +88,13 @@ BOTH  ->  Payroll run  ->  Finalize  ->  Payslip
 
 Two ordering rules follow from this, and they decide the sequence below:
 
-- **Approve the period before opening Payroll.** The period dropdown is built from approved
-  periods, so it is empty otherwise.
+- **Approve the period before opening Payroll — for HOURLY staff.** ~~The period dropdown is built
+  from approved periods, so it is empty otherwise.~~ **No longer true as of 2026-09-19.** The dropdown
+  is now built from approved timesheet periods *unioned with* the calendar months of accepted trips,
+  and each option is labelled `timesheets only`, `trips only` or `timesheets + trips`. Approval is
+  still what makes an hourly employee's *hours* payable, but a month with only trip commissions in it
+  now appears on its own. Before the fix it did not, which meant those commissions could not be paid
+  at all — Charles' August trip was stuck behind exactly that.
 - **Log in as a newly invited employee straight away**, while the forced password-change flag
   is still set.
 
@@ -93,7 +106,7 @@ Full browser width.
 
 | # | Page | Do this | Explain |
 |---|------|---------|---------|
-| 1 | `/` | Just look at it | The landing page. What the system is, and the stack it runs on. |
+| 1 | `/` | **Scroll the whole page.** Use the nav: How It Works → Features → Pay Model → About | Rebuilt 2026-09-19 and now a real demo beat, not a glance. The **stats strip is live** — routes, trips, employees and payroll periods queried on load, which is worth saying out loud since it proves the page is wired to the same database as the rest. Then walk the four-step lifecycle panel; it sets up Parts A and B before you have clicked anything. Note it deliberately says **Photo-Verified Time-In**, not "biometric" — nothing is matched against an enrolled record, and claiming otherwise would be a promise the system does not keep. |
 | 2 | `/` → Login | Sign in as **admin** | Login is a modal on the landing page. There is no public sign-up. |
 | 3 | `/home/` | Read the cards | Admin dashboard. The invite card only appears for admins. |
 | 4 | `/home/overview/` | Read the four cards | Company-wide totals. Total Late and Performance say "Not tracked" — say this is deliberate, not broken. |
@@ -138,7 +151,7 @@ Narrow the browser to about 420px.
 | 24 | `/login/` | Log in as the **hourly** employee | Not a driver — drivers have no timesheet and the screen will look broken. |
 | 25 | `/home/` | Read the cards | Employee dashboard: days present/absent and hours this month. |
 | 26 | `/timesheet/` | Look at the month calendar, then tap **today** | Coloured days are recorded entries. Tapping a day opens that day's entry. |
-| 27 | `/timesheet/entry/` | **Time In** — allow the camera, capture | A photo is required. Captured to a canvas, sent as base64, saved to the uploads folder. The entry starts as pending. |
+| 27 | `/timesheet/entry/` | Read the **notice above the button**, then **Time In** — allow the camera, capture | A photo is required. Captured to a canvas, sent as base64, saved to the uploads folder. The entry starts as pending. The notice (added 2026-09-19) tells the employee the photo is taken and shown to the admin at review — say this is a **photo capture, not biometrics**: nothing is matched against an enrolled record anywhere in the system. Being precise here is better than being caught overclaiming if someone asks. |
 | 28 | `/timesheet/entry/` | **Time Out** | Closes the day. Admins cannot do either — blocked server-side, not just hidden in the UI. |
 | 29 | `/timesheet/log/` | Scroll, then use the month arrows | Employee-only history. Admins are redirected away. Note: the seeded September entries show "—" where the photo would be, because they were inserted directly rather than clocked in. The entry you create live in step 27 will have a real photo. |
 | 30 | `/payroll/` | Look — no Run Payroll button | Same page, different role. An employee sees only their own runs. |
@@ -157,10 +170,11 @@ Back to full browser width at step 33.
 | 34 | `/timesheet/` | Pick the hourly employee from the dropdown | Admins choose whose calendar they are looking at. |
 | 35 | `/timesheet/entry/` | Open one day, **Approve**. On another, **Reject** with a reason | Per-entry review. The photo is here too. Admin can also soft-delete an entry. |
 | 36 | `/timesheet/review/` | Pick employee + date range → **Load Entries** → **Approve Period** | Bulk approval. Writes a record of who approved which dates and when. |
-| 37 | `/payroll/` | Open the period dropdown — the period is now there. **Run Payroll** | The dropdown is built from approved periods, which is why approval has to happen first. |
+| 37 | `/payroll/` | Open the period dropdown and **read the labels aloud**, then pick **August 2026 — trips only** and **Run Payroll** | Each option says what is waiting in it: `timesheets only`, `trips only`, or `timesheets + trips`. August holds nothing but Charles' accepted trip, and running it pays his ₱900 commission with no timesheet involved anywhere — which is the clearest possible demonstration that the two pay models share one run. Pick September instead and everyone is skipped, because it has already been run. |
 | 38 | `/payroll/` | Compare the **driver row** with the **hourly row** | Hourly: PHP 100 regular, PHP 110 past 8 hours a day. Driver: percentage of accepted trips, no hours at all. |
 | 39 | `/payroll/` | Click **View** on a row's deductions | SSS, PhilHealth and Pag-IBIG, each itemized with the bracket it came from, halved for a semi-monthly period. |
-| 40 | `/payroll/` | **Finalize** one run, then **Run Payroll** again for the same period | Finalize snapshots it to payslips and locks it. Re-running skips anyone already paid for those exact dates. |
+| 40 | `/payroll/` | **Finalize** one run, then **Run Payroll** again for the same period | Finalize snapshots it to payslips and locks it. Re-running skips anyone already paid for those exact dates. Watch the Status cell — it turns into a **View Payslip** link. |
+| 40b | `/payroll/payslip/?id=…` | Click **View Payslip** on the row you just finalized. Then hit **Print** | **New 2026-09-19 — the strongest place to end the payroll section.** Before this, Finalize had no visible result at all: the payslips table was written and never read. This renders the **snapshot**, not the live run, which is the point — what someone was told they were paid cannot change afterwards if a rate constant is edited. Itemised earnings, itemised deductions with the bracket each came from, and the net. Print strips the app shell. **Worth demonstrating the access rule too:** log in as a different employee and change the `id` in the URL — you get "You do not have access to that payslip". Admins see everyone's; an employee sees only their own. |
 
 ---
 
@@ -191,6 +205,7 @@ Every page in the system and who can reach it.
 | `/timesheet/log/` | Employee only | Monthly history with photos; admin is redirected away |
 | `/timesheet/review/` | **Admin only** | Bulk period approval |
 | `/payroll/` | Any login | Admin runs and finalizes; employee sees only their own runs |
+| `/payroll/payslip/?id=N` | Any login | Finalized snapshot. Admin opens any; an employee opens only their own — a colleague's id is refused |
 | `/more/` | Any login | Settings menu, role-aware |
 | `/more/profile/` | Any login | Self-editable details + read-only employment info |
 | `/more/employees/` | **Admin only** | Roster + edit modal |
