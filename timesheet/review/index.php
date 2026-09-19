@@ -46,20 +46,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reject_entry_id'])) {
     } else {
         $db->beginTransaction();
         try {
+            // Guard against a second approval for the same employee and period. The
+            // disabled button is a UI convenience only — a double submit, a refresh of
+            // the POST, or a crafted request would otherwise insert another row, and
+            // payroll reads this table to decide which periods exist. Row-locked so two
+            // concurrent submits cannot both pass the check.
             $stmt = $db->prepare(
-                "UPDATE timesheet_entries SET status = 'approved'
-                 WHERE user_id = ? AND date BETWEEN ? AND ? AND status = 'pending'"
+                'SELECT id FROM timesheet_approvals
+                 WHERE user_id = ? AND period_start = ? AND period_end = ?
+                 FOR UPDATE'
             );
             $stmt->execute([$selectedUserId, $periodStart, $periodEnd]);
 
-            $stmt = $db->prepare(
-                'INSERT INTO timesheet_approvals (user_id, period_start, period_end, approved_by, approved_at)
-                 VALUES (?, ?, ?, ?, NOW())'
-            );
-            $stmt->execute([$selectedUserId, $periodStart, $periodEnd, $_SESSION['user']['id']]);
+            if ($stmt->fetch()) {
+                $db->rollBack();
+                $error = 'This period has already been approved for this employee.';
+            } else {
+                $stmt = $db->prepare(
+                    "UPDATE timesheet_entries SET status = 'approved'
+                     WHERE user_id = ? AND date BETWEEN ? AND ? AND status = 'pending'"
+                );
+                $stmt->execute([$selectedUserId, $periodStart, $periodEnd]);
 
-            $db->commit();
-            $success = 'Period approved.';
+                $stmt = $db->prepare(
+                    'INSERT INTO timesheet_approvals (user_id, period_start, period_end, approved_by, approved_at)
+                     VALUES (?, ?, ?, ?, NOW())'
+                );
+                $stmt->execute([$selectedUserId, $periodStart, $periodEnd, $_SESSION['user']['id']]);
+
+                $db->commit();
+                $success = 'Period approved.';
+            }
         } catch (Exception $e) {
             $db->rollBack();
             $error = 'Approval failed: ' . $e->getMessage();
@@ -79,6 +96,15 @@ if ($selectedUserId && $periodStart && $periodEnd) {
 }
 
 $pendingCount = count(array_filter($entries, fn($e) => $e['status'] === 'pending'));
+
+$periodAlreadyApproved = false;
+if ($selectedUserId && $periodStart && $periodEnd) {
+    $stmt = $db->prepare(
+        'SELECT COUNT(*) FROM timesheet_approvals WHERE user_id = ? AND period_start = ? AND period_end = ?'
+    );
+    $stmt->execute([$selectedUserId, $periodStart, $periodEnd]);
+    $periodAlreadyApproved = (bool) $stmt->fetchColumn();
+}
 ?>
 
 <main class="max-w-3xl mx-auto w-full px-4 pb-32 pt-4 sm:px-6 space-y-6">
@@ -175,8 +201,14 @@ $pendingCount = count(array_filter($entries, fn($e) => $e['status'] === 'pending
         <input type="hidden" name="user_id" value="<?php echo $selectedUserId; ?>">
         <input type="hidden" name="period_start" value="<?php echo htmlspecialchars($periodStart); ?>">
         <input type="hidden" name="period_end" value="<?php echo htmlspecialchars($periodEnd); ?>">
-        <button type="submit" class="bg-brand-green text-white font-bold rounded-full px-6 py-3 hover:opacity-90 transition" <?php echo $pendingCount === 0 ? 'disabled' : ''; ?>>
-          Approve Period (<?php echo $pendingCount; ?> pending)
+        <button type="submit" class="bg-brand-green text-white font-bold rounded-full px-6 py-3 hover:opacity-90 transition disabled:opacity-50" <?php echo ($pendingCount === 0 && $periodAlreadyApproved) ? 'disabled' : ''; ?>>
+          <?php if ($pendingCount === 0 && $periodAlreadyApproved): ?>
+            Period Already Approved
+          <?php elseif ($pendingCount === 0): ?>
+            Register Period Approval
+          <?php else: ?>
+            Approve Period (<?php echo $pendingCount; ?> pending)
+          <?php endif; ?>
         </button>
       </form>
     <?php endif; ?>

@@ -189,8 +189,45 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['finalize_
                 [$sss, $sssNote] = calculateSSS($grossPay);
                 [$philhealth, $philhealthNote] = calculatePhilHealth($grossPay);
                 [$pagibig, $pagibigNote] = calculatePagibig($grossPay);
-                $totalDeductions = $sss + $philhealth + $pagibig;
-                $netPay = $grossPay - $totalDeductions;
+
+                // SSS and PhilHealth both have floors (MSC 5,000 and base 10,000), so on a
+                // very small gross the computed contributions can exceed what was actually
+                // earned — a helper on a cheap route can gross less than the ~265 minimum.
+                // Flooring net pay at 0 alone was not enough: total_deductions and the
+                // itemised deduction rows kept their uncapped values, so the run did not
+                // reconcile (gross - deductions != net) and the deductions modal disagreed
+                // with the summary line.
+                //
+                // Nothing can be withheld that was not earned, so the contributions are
+                // allocated in statutory order against whatever gross exists, and each row
+                // is written at the amount actually taken.
+                $remaining = $grossPay;
+                $allocate = function (float $amount) use (&$remaining): float {
+                    $taken = min($amount, $remaining);
+                    $remaining = round($remaining - $taken, 2);
+                    return round($taken, 2);
+                };
+
+                $sssFull = $sss;
+                $philhealthFull = $philhealth;
+                $pagibigFull = $pagibig;
+
+                $sss = $allocate($sssFull);
+                $philhealth = $allocate($philhealthFull);
+                $pagibig = $allocate($pagibigFull);
+
+                if ($sss < $sssFull) {
+                    $sssNote .= sprintf(' — capped at %.2f of %.2f, gross too low', $sss, $sssFull);
+                }
+                if ($philhealth < $philhealthFull) {
+                    $philhealthNote .= sprintf(' — capped at %.2f of %.2f, gross too low', $philhealth, $philhealthFull);
+                }
+                if ($pagibig < $pagibigFull) {
+                    $pagibigNote .= sprintf(' — capped at %.2f of %.2f, gross too low', $pagibig, $pagibigFull);
+                }
+
+                $totalDeductions = round($sss + $philhealth + $pagibig, 2);
+                $netPay = round($grossPay - $totalDeductions, 2);
 
                 $stmt = $db->prepare(
                     'INSERT INTO payroll_runs
@@ -227,9 +264,45 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['finalize_
     }
 }
 
-$eligiblePeriods = $db->query(
-    'SELECT DISTINCT period_start, period_end FROM timesheet_approvals ORDER BY period_start DESC'
+// Eligible periods come from TWO sources, not just timesheet_approvals.
+//
+// Drivers and helpers are paid by trip commission and never have a timesheet, so they
+// never produce a timesheet_approvals row. Sourcing this list from that table alone
+// meant a period containing only trip activity never appeared here at all, and those
+// commissions could not be paid by any route through the UI. That was live: a trip
+// completed 2026-08-07 was unpayable because no hourly employee had an approved August.
+//
+// Trip periods are expressed as whole calendar months, matching the month-boundary
+// convention the existing approval rows already use (e.g. 2026-09-01 .. 2026-09-30).
+$periodRows = $db->query(
+    'SELECT period_start, period_end, MAX(has_timesheet) AS has_timesheet, MAX(has_trips) AS has_trips FROM (
+         SELECT period_start, period_end, 1 AS has_timesheet, 0 AS has_trips
+         FROM timesheet_approvals
+         UNION ALL
+         SELECT DATE_FORMAT(completed_at, "%Y-%m-01") AS period_start,
+                LAST_DAY(completed_at) AS period_end,
+                0 AS has_timesheet, 1 AS has_trips
+         FROM trips_new
+         WHERE status = "completed" AND completed_at IS NOT NULL
+     ) AS combined
+     GROUP BY period_start, period_end
+     ORDER BY period_start DESC'
 )->fetchAll(PDO::FETCH_ASSOC);
+
+$eligiblePeriods = [];
+foreach ($periodRows as $p) {
+    // Label what each period actually contains, so the admin can tell a full period
+    // from one that only has trip commissions waiting in it.
+    if ($p['has_timesheet'] && $p['has_trips']) {
+        $source = 'timesheets + trips';
+    } elseif ($p['has_trips']) {
+        $source = 'trips only';
+    } else {
+        $source = 'timesheets only';
+    }
+    $p['source_label'] = $source;
+    $eligiblePeriods[] = $p;
+}
 
 $runs = $isAdmin
     ? $db->query(
@@ -251,6 +324,7 @@ $runs = $isAdmin
     })();
 
 $deductionsByRun = [];
+$payslipIdByRun = [];
 if (!empty($runs)) {
     $runIds = array_column($runs, 'id');
     $placeholders = implode(',', array_fill(0, count($runIds), '?'));
@@ -258,6 +332,15 @@ if (!empty($runs)) {
     $stmt->execute($runIds);
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $d) {
         $deductionsByRun[$d['payroll_run_id']][] = $d;
+    }
+
+    // Maps each finalized run to the payslip snapshot it produced, so the Finalized badge
+    // can link to it. Until payroll/payslip/ existed there was nothing to link to and the
+    // payslips table had no reader at all.
+    $stmt = $db->prepare("SELECT id, payroll_run_id FROM payslips WHERE payroll_run_id IN ($placeholders)");
+    $stmt->execute($runIds);
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $ps) {
+        $payslipIdByRun[$ps['payroll_run_id']] = (int) $ps['id'];
     }
 }
 ?>
@@ -280,14 +363,14 @@ if (!empty($runs)) {
   <div class="bg-gray-50 dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-xl p-6 mb-6">
     <h2 class="text-gray-900 dark:text-white font-bold mb-4">Run Payroll</h2>
     <?php if (empty($eligiblePeriods)): ?>
-      <p class="text-gray-500 dark:text-gray-400 text-sm">No approved timesheet periods yet. Approve a period first in Timesheet Review.</p>
+      <p class="text-gray-500 dark:text-gray-400 text-sm">Nothing to pay yet. Approve a timesheet period in Timesheet Review, or accept a delivered trip, and the period will appear here.</p>
     <?php else: ?>
     <form method="POST" data-confirm="Run payroll for all employees in this period? This will create a payroll record for each employee not yet run." class="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
       <div class="sm:col-span-2">
         <label for="payroll-period" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Period</label>
         <select id="payroll-period" name="period" onchange="var v=this.value.split('|'); this.form.period_start.value=v[0]; this.form.period_end.value=v[1];" class="w-full rounded-lg border border-gray-300 dark:border-surface-border dark:bg-surface dark:text-white px-3 py-2 text-sm">
           <?php foreach ($eligiblePeriods as $p): ?>
-            <option value="<?php echo htmlspecialchars($p['period_start'] . '|' . $p['period_end']); ?>"><?php echo htmlspecialchars($p['period_start'] . ' to ' . $p['period_end']); ?></option>
+            <option value="<?php echo htmlspecialchars($p['period_start'] . '|' . $p['period_end']); ?>"><?php echo htmlspecialchars($p['period_start'] . ' to ' . $p['period_end'] . ' — ' . $p['source_label']); ?></option>
           <?php endforeach; ?>
         </select>
         <input type="hidden" name="period_start" value="<?php echo htmlspecialchars($eligiblePeriods[0]['period_start']); ?>">
@@ -344,7 +427,13 @@ if (!empty($runs)) {
                 <td class="pr-6 py-2">₱<?php echo number_format($run['pagibig_deduction'], 2); ?></td>
                 <td class="pr-6 py-2 font-bold">₱<?php echo number_format($run['net_pay'], 2); ?></td>
                 <td class="py-2">
-                  <?php if ($run['status'] === 'finalized'): ?>
+                  <?php if ($run['status'] === 'finalized' && isset($payslipIdByRun[$run['id']])): ?>
+                    <a href="<?php echo BASE_PATH; ?>/payroll/payslip/?id=<?php echo $payslipIdByRun[$run['id']]; ?>"
+                       class="inline-flex items-center gap-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-semibold px-2 py-1 rounded-full hover:opacity-80 transition">
+                      View Payslip
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="h-3 w-3"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                    </a>
+                  <?php elseif ($run['status'] === 'finalized'): ?>
                     <span class="inline-block bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-semibold px-2 py-1 rounded-full">Finalized</span>
                   <?php elseif ($isAdmin): ?>
                     <form method="POST" data-confirm="Finalize this payslip? This cannot be undone.">
