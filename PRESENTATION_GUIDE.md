@@ -43,17 +43,41 @@ and 40, add step 40b, and **retire one ordering rule that is no longer true** �
    | Trips | 3 accepted (incl. one delivered 09-13 and accepted 09-16) |
    | Payroll | Sept 1–30 run for 4 employees; Charles finalized, other 3 still draft |
 
-   **Test logins:** `admin@trucking.com` / `DemoAdmin2026!` · `charles@trucking.com` (driver) and
-   `employee1@trucking.com` (dispatcher) / `DemoUser2026!`. Change these before the system is used
-   for real.
+   **Test logins — re-verified 2026-09-19 against the stored hashes, all three confirmed working:**
 
-5. **Use AUGUST 2026 as the fresh payroll period.** This solves a problem the earlier version of this
-   guide left open. September is already run, so Run Payroll on it reports everyone skipped. As of
-   2026-09-19 the period list also includes months that only contain trip activity, and **August 2026
-   appears as "trips only" and has never been run** — it holds Charles Morales' trip completed
-   2026-08-07, worth ₱900 in commission. Running August live is a clean, honest demo of a real
-   payroll run, and it doubles as a demonstration that commission-only periods are payable.
-   Do not run it before recording, or you lose the moment.
+   | Email | Password | Role |
+   |-------|----------|------|
+   | `admin@trucking.com` | `DemoAdmin2026!` | Admin |
+   | `employee1@trucking.com` | `DemoUser2026!` | Hourly (Dispatcher) |
+   | `charles@trucking.com` | `DemoUser2026!` | Driver |
+
+   None of the three is flagged for a forced password change, so none of them will be hijacked by
+   the Change Password screen on first login. **Change these before the system is used for real.**
+
+   > Two of these had drifted out of sync with the database and did not work as written here; they
+   > were reset on 2026-09-19 to match. Passwords are bcrypt-hashed and cannot be read back, so if
+   > they drift again the only options are remembering them or resetting them. **Log in as admin
+   > once before you start recording** rather than finding out on camera.
+
+5. **Payroll is pre-staged — just open the page and click Run. Do not touch the dropdown.**
+   September's previous payroll runs were cleared on 2026-09-19 precisely so this works, and
+   **September is the top option, which is what the form selects by default.** Clicking RUN PAYROLL
+   without changing anything pays four people across both pay models in one go:
+
+   | Employee | Basis | Amount |
+   |----------|-------|--------|
+   | Jayron Javier | Hourly, from approved timesheets | 40 reg + 7 OT hrs |
+   | Charles Morales | Driver commission, 1 trip | ₱900.00 |
+   | Kenneth Daryl Villamayor | Driver commission, 1 trip | ₱1,275.00 |
+   | Laden Deguzman | Helper commission, 1 trip | ₱680.00 |
+
+   **Do not run payroll before recording, or you lose the moment** — re-running reports everyone
+   skipped. August 2026 ("trips only", one driver, ₱900) is untouched and held in reserve if you
+   want a second run on camera, or a retake.
+
+   > Restoring the cleared September data, if it is ever needed, is
+   > `restore_september_payroll.sql` — though simply running September in the app recreates
+   > equivalent rows from the same inputs.
 6. **Two window sizes ready** — full width for the admin tables, about 420px for the employee
    pages. The employee side is built mobile-first with a fixed bottom nav.
 7. Use **throwaway passwords you don't mind saying out loud**. The invite form shows the
@@ -170,7 +194,7 @@ Back to full browser width at step 33.
 | 34 | `/timesheet/` | Pick the hourly employee from the dropdown | Admins choose whose calendar they are looking at. |
 | 35 | `/timesheet/entry/` | Open one day, **Approve**. On another, **Reject** with a reason | Per-entry review. The photo is here too. Admin can also soft-delete an entry. |
 | 36 | `/timesheet/review/` | Pick employee + date range → **Load Entries** → **Approve Period** | Bulk approval. Writes a record of who approved which dates and when. |
-| 37 | `/payroll/` | Open the period dropdown and **read the labels aloud**, then pick **August 2026 — trips only** and **Run Payroll** | Each option says what is waiting in it: `timesheets only`, `trips only`, or `timesheets + trips`. August holds nothing but Charles' accepted trip, and running it pays his ₱900 commission with no timesheet involved anywhere — which is the clearest possible demonstration that the two pay models share one run. Pick September instead and everyone is skipped, because it has already been run. |
+| 37 | `/payroll/` | Open the dropdown, **read the labels aloud**, then close it and **leave September selected**. Click **RUN PAYROLL** | Each option says what is waiting in it: `timesheets only`, `trips only`, `timesheets + trips`. September is already selected and is `timesheets + trips`, so one click pays four people — Jayron on hours, and Charles, Kenneth and Laden on trip commissions. **Do not change the selection**; the data was staged so the default just works. August is there as a spare if you need a second take. |
 | 38 | `/payroll/` | Compare the **driver row** with the **hourly row** | Hourly: PHP 100 regular, PHP 110 past 8 hours a day. Driver: percentage of accepted trips, no hours at all. |
 | 39 | `/payroll/` | Click **View** on a row's deductions | SSS, PhilHealth and Pag-IBIG, each itemized with the bracket it came from, halved for a semi-monthly period. |
 | 40 | `/payroll/` | **Finalize** one run, then **Run Payroll** again for the same period | Finalize snapshots it to payslips and locks it. Re-running skips anyone already paid for those exact dates. Watch the Status cell — it turns into a **View Payslip** link. |
@@ -184,7 +208,7 @@ Back to full browser width at step 33.
 |---|------|---------|---------|
 | 41 | Any page | Hit the **theme toggle** in the top bar | Dark and light throughout. Do it on a table-heavy page. |
 | 42 | `/more/about/`, `/more/privacy-policy/` | Open both briefly | The last two content pages. Both require login like everything else. |
-| 43 | — | Close on what is not built | QR clock-in, leave and holidays, BIR withholding, 13th-month pay, manual adjustments. |
+| 43 | — | Close on what is not built | QR clock-in, leave and holidays, 13th-month pay, manual adjustments. **Do not raise BIR withholding with the client** — it is tracked in `SYSTEM.md` as internal future work and is deliberately left off this list. If they ask about tax directly, answer honestly: the system withholds SSS, PhilHealth and Pag-IBIG only. Do not volunteer it. |
 
 ---
 
