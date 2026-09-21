@@ -160,8 +160,7 @@ $stateChip = [
             <tr class="text-orange-600 dark:text-brand-yellow font-bold">
               <th class="pr-6 pb-2">Date</th>
               <th class="pr-6 pb-2">Time In</th>
-              <th class="pr-6 pb-2">Time Out</th>
-              <th class="pb-2">Type</th>
+              <th class="pb-2">Time Out</th>
             </tr>
           </thead>
           <tbody>
@@ -169,8 +168,7 @@ $stateChip = [
               <tr class="border-t border-gray-200 dark:border-surface-border text-gray-900 dark:text-white">
                 <td class="pr-6 py-2"><?php echo htmlspecialchars($entry['date']); ?></td>
                 <td class="pr-6 py-2"><?php echo htmlspecialchars($entry['time_in'] ?? ''); ?></td>
-                <td class="pr-6 py-2"><?php echo htmlspecialchars($entry['time_out'] ?? ''); ?></td>
-                <td class="py-2"><?php echo htmlspecialchars($entry['type']); ?></td>
+                <td class="py-2"><?php echo htmlspecialchars($entry['time_out'] ?? ''); ?></td>
               </tr>
             <?php endforeach; ?>
           </tbody>
