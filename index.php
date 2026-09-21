@@ -200,9 +200,9 @@ $sessionUser = currentUser();
           </h2>
         </div>
         <p class="text-gray-600 dark:text-gray-300 leading-relaxed lg:pb-3">
-          A trip cannot be completed and paid in a single click. The driver reports the run finished,
-          and the admin accepts it separately — so a delivery can still be reviewed, returned or
-          cancelled before any money is committed.
+          A trip cannot be completed and paid in a single click. The office records the delivery,
+          and accepts it as payable in a separate step — so a delivery can still be reviewed,
+          returned or cancelled before any money is committed.
         </p>
       </div>
 
@@ -217,7 +217,7 @@ $sessionUser = currentUser();
             [
                 'n' => '02', 'title' => 'Delivered',
                 'icon' => '<rect x="1" y="3" width="15" height="13" rx="1"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>',
-                'body' => 'The run is reported finished. Nothing is paid and no attendance is written yet — this step is fully reversible.',
+                'body' => 'The admin records the run as delivered. Nothing is paid and no attendance is written yet — this step is fully reversible.',
             ],
             [
                 'n' => '03', 'title' => 'Accepted',
