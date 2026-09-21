@@ -98,6 +98,30 @@ if (!isset($pageTitle)) {
     scrollbar-color: #374151 transparent;
   }
 
+  /* In-page links glide instead of teleporting.
+
+     Every anchor in the app goes through this -- the landing page's "See how
+     it works" and its nav, and #today on the timesheet calendar. There was no
+     scroll-behavior set anywhere, so all of them jumped, which reads as the
+     page having reloaded rather than as having moved down it.
+
+     scroll-padding-top exists because the landing page header is `fixed`. Without
+     it the browser scrolls the heading to y=0, which is underneath the floating
+     navbar, and the section looks like it starts mid-sentence. */
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 6rem;
+  }
+
+  /* Smooth scrolling is a common vestibular trigger, and a long glide is worse
+     than a jump for anyone it affects. This is the one animation on the site
+     that is switched off rather than softened. */
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+
   /* ------------------------------------------------------------------
      Modal entry animation.
 
