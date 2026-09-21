@@ -4,7 +4,7 @@ require_once __DIR__ . '/../../includes/attendance.php';
 require_once __DIR__ . '/../../includes/payroll.php';
 requireLogin();
 
-$pageTitle = 'Dashboard Overview';
+$pageTitle = 'Overview';
 $activeNav = 'overview';
 include __DIR__ . '/../../includes/head.php';
 
@@ -103,35 +103,59 @@ $periodLabel = date('F Y');
 ?>
 
 <main class="max-w-3xl mx-auto w-full px-4 pb-32 pt-4 sm:px-6 space-y-6">
-  <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Dashboard Overview</h1>
-  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-    <div class="bg-white dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-xl px-6 py-5 shadow-sm dark:shadow-none">
-      <div class="text-gray-900 dark:text-white font-semibold mb-4">Total Salary<?php echo $isAdmin ? ' (Company)' : ''; ?></div>
-      <div class="border-t border-gray-200 dark:border-surface-border mb-4"></div>
-      <div class="text-gray-900 dark:text-white text-xl font-bold">₱<?php echo number_format($totalSalary, 2); ?></div>
-    </div>
-    <div class="bg-white dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-xl px-6 py-5 shadow-sm dark:shadow-none">
-      <div class="text-gray-900 dark:text-white font-semibold mb-4">Total Hours<?php echo $isAdmin ? ' (Company)' : ''; ?></div>
-      <div class="border-t border-gray-200 dark:border-surface-border mb-4"></div>
-      <div class="text-gray-900 dark:text-white text-xl font-bold"><?php echo number_format($totalHours, 2); ?>h</div>
-    </div>
-    <div class="bg-white dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-xl px-6 py-5 shadow-sm dark:shadow-none">
-      <div class="text-gray-900 dark:text-white font-semibold mb-1">Accruing This Period<?php echo $isAdmin ? ' (Company)' : ''; ?></div>
-      <div class="text-gray-500 dark:text-gray-400 text-xs mb-3"><?php echo htmlspecialchars($periodLabel); ?> so far — not yet paid</div>
-      <div class="border-t border-gray-200 dark:border-surface-border mb-4"></div>
-      <div class="text-gray-900 dark:text-white text-xl font-bold">₱<?php echo number_format($accruedPay, 2); ?></div>
-    </div>
-    <div class="bg-white dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-xl px-6 py-5 shadow-sm dark:shadow-none">
-      <div class="text-gray-900 dark:text-white font-semibold mb-1">Total Absences<?php echo $isAdmin ? ' (Company)' : ''; ?></div>
-      <div class="text-gray-500 dark:text-gray-400 text-xs mb-3"><?php echo htmlspecialchars($periodLabel); ?>, rest days excluded</div>
-      <div class="border-t border-gray-200 dark:border-surface-border mb-4"></div>
-      <?php if ($absenceApplies): ?>
-        <div class="text-gray-900 dark:text-white text-xl font-bold"><?php echo (int) $totalAbsences; ?></div>
-      <?php else: ?>
-        <div class="text-gray-400 dark:text-gray-500 text-sm font-bold">Not applicable — trip-based pay</div>
-      <?php endif; ?>
-    </div>
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Overview</h1>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Totals to date, and how the open period is tracking. The Home dashboard shows this month at a glance.</p>
   </div>
+
+  <?php
+    // Two scopes on one page. They were previously mixed in a single flat grid with
+    // nothing to say which was which, so Total Hours (all time) sat beside an
+    // absence count (this month) and read as the same period -- and disagreed with
+    // the Home dashboard's figure for the same employee by exactly the hours logged
+    // in an earlier month. Grouping them is what makes each number mean something.
+  ?>
+
+  <section>
+    <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">This period &middot; <?php echo htmlspecialchars($periodLabel); ?></h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="bg-white dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-xl px-6 py-5 shadow-sm dark:shadow-none">
+        <div class="text-gray-900 dark:text-white font-semibold mb-1">Accruing<?php echo $isAdmin ? ' (Company)' : ''; ?></div>
+        <div class="text-gray-500 dark:text-gray-400 text-xs mb-3">Earned so far — not yet paid</div>
+        <div class="border-t border-gray-200 dark:border-surface-border mb-4"></div>
+        <div class="text-gray-900 dark:text-white text-xl font-bold">₱<?php echo number_format($accruedPay, 2); ?></div>
+      </div>
+      <div class="bg-white dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-xl px-6 py-5 shadow-sm dark:shadow-none">
+        <div class="text-gray-900 dark:text-white font-semibold mb-1">Absences<?php echo $isAdmin ? ' (Company)' : ''; ?></div>
+        <div class="text-gray-500 dark:text-gray-400 text-xs mb-3">Rest days excluded</div>
+        <div class="border-t border-gray-200 dark:border-surface-border mb-4"></div>
+        <?php if ($absenceApplies): ?>
+          <div class="text-gray-900 dark:text-white text-xl font-bold"><?php echo (int) $totalAbsences; ?></div>
+        <?php else: ?>
+          <div class="text-gray-400 dark:text-gray-500 text-sm font-bold">Not applicable — trip-based pay</div>
+        <?php endif; ?>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">All time</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="bg-white dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-xl px-6 py-5 shadow-sm dark:shadow-none">
+        <div class="text-gray-900 dark:text-white font-semibold mb-1">Total Salary<?php echo $isAdmin ? ' (Company)' : ''; ?></div>
+        <div class="text-gray-500 dark:text-gray-400 text-xs mb-3">Finalized payroll only</div>
+        <div class="border-t border-gray-200 dark:border-surface-border mb-4"></div>
+        <div class="text-gray-900 dark:text-white text-xl font-bold">₱<?php echo number_format($totalSalary, 2); ?></div>
+      </div>
+      <div class="bg-white dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-xl px-6 py-5 shadow-sm dark:shadow-none">
+        <div class="text-gray-900 dark:text-white font-semibold mb-1">Total Hours<?php echo $isAdmin ? ' (Company)' : ''; ?></div>
+        <div class="text-gray-500 dark:text-gray-400 text-xs mb-3">Approved entries, every period</div>
+        <div class="border-t border-gray-200 dark:border-surface-border mb-4"></div>
+        <div class="text-gray-900 dark:text-white text-xl font-bold"><?php echo number_format($totalHours, 2); ?>h</div>
+      </div>
+    </div>
+  </section>
+
 </main>
 
 <?php
