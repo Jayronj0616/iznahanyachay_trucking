@@ -98,6 +98,39 @@ if (!isset($pageTitle)) {
     scrollbar-color: #374151 transparent;
   }
 
+  /* Page content settles in on load.
+
+     This is plain PHP with full page loads -- there is no client-side router to
+     transition between views -- so "animation when you switch to timesheet or
+     settings" is an entry animation on arrival. Only <main> moves. The topbar
+     and the bottom nav stay put deliberately: the chrome is the thing that did
+     not change between the two pages, and animating it would make every
+     navigation look like a full reload, which is the opposite of the point.
+
+     Safe to transform because every modal in the project sits outside <main>.
+     A transformed ancestor becomes the containing block for position:fixed
+     descendants, so a modal inside here would be positioned against main
+     instead of the viewport for the duration of the animation.
+
+     Keep it short. This runs on every navigation, and anything slow enough to
+     notice twice becomes something to sit through. */
+  @keyframes ts-page-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  main {
+    animation: ts-page-in 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  /* Same rule as the modals: lose the travel, keep the fade, so arriving still
+     reads as arriving. */
+  @media (prefers-reduced-motion: reduce) {
+    main {
+      animation: ts-backdrop-in 140ms ease-out both;
+    }
+  }
+
   /* In-page links glide instead of teleporting.
 
      Every anchor in the app goes through this -- the landing page's "See how
