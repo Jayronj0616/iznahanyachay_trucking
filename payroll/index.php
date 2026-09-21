@@ -284,7 +284,108 @@ if (!empty($runs)) {
 
   <div class="bg-gray-50 dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-xl p-6">
     <h2 class="text-gray-900 dark:text-white font-bold mb-4">Payroll Breakdown</h2>
-    <div class="overflow-x-auto">
+
+    <?php
+      // A breakdown row is a payslip -- fourteen columns of it. On a desktop that
+      // reads fine at full width; on a phone it meant scrolling left and right to
+      // read one employee's pay, which is what the client asked to be fixed. So the
+      // same data renders as a stacked list below the sm breakpoint and as the table
+      // above it.
+      //
+      // The status chip and the deductions button are identical in both, so they are
+      // written once here and called from each. Duplicating them would mean the two
+      // layouts drifting the first time either is touched.
+      $renderStatus = function (array $run) use ($payslipIdByRun, $isAdmin) { ?>
+        <?php if ($run['status'] === 'finalized' && isset($payslipIdByRun[$run['id']])): ?>
+          <a href="<?php echo BASE_PATH; ?>/payroll/payslip/?id=<?php echo $payslipIdByRun[$run['id']]; ?>"
+             class="inline-flex items-center gap-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-semibold px-2 py-1 rounded-full hover:opacity-80 transition">
+            View Payslip
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="h-3 w-3"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+          </a>
+        <?php elseif ($run['status'] === 'finalized'): ?>
+          <span class="inline-block bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-semibold px-2 py-1 rounded-full">Finalized</span>
+        <?php elseif ($isAdmin): ?>
+          <form method="POST" data-confirm="Finalize this payslip? This cannot be undone.">
+            <input type="hidden" name="finalize_run_id" value="<?php echo (int) $run['id']; ?>">
+            <button type="submit" class="bg-brand-orange text-white text-xs font-semibold px-3 py-1.5 rounded-full hover:opacity-90 transition">Finalize</button>
+          </form>
+        <?php else: ?>
+          <span class="inline-block bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-xs font-semibold px-2 py-1 rounded-full">Draft</span>
+        <?php endif; ?>
+      <?php };
+
+      $renderDetails = function (array $run) use ($deductionsByRun) { ?>
+        <?php if (!empty($deductionsByRun[$run['id']])): ?>
+          <?php
+            $dedPayload = array_map(function ($d) {
+                return [
+                    'type' => $d['type'],
+                    'amount' => number_format((float) $d['amount'], 2),
+                    'note' => $d['basis_note'],
+                    'created_at' => $d['created_at'],
+                ];
+            }, $deductionsByRun[$run['id']]);
+          ?>
+          <button type="button"
+            onclick='openDeductionsModal(<?php echo htmlspecialchars(json_encode($dedPayload), ENT_QUOTES); ?>, <?php echo htmlspecialchars(json_encode($run['employee_name'] . " — " . $run['period_start'] . " to " . $run['period_end']), ENT_QUOTES); ?>)'
+            class="bg-brand-orange text-white text-xs font-semibold px-3 py-1.5 rounded-full hover:opacity-90 transition">View</button>
+        <?php else: ?>
+          <span class="text-gray-400 text-xs">&mdash;</span>
+        <?php endif; ?>
+      <?php };
+
+      // Earnings first, then what was taken off, then the net -- the order a payslip
+      // is read in. Net is excluded here because it is the card's footer, not a row.
+      $runLines = function (array $run) {
+          return [
+              'Reg Hrs' => number_format((float) $run['regular_hours'], 2),
+              'OT Hrs' => number_format((float) $run['ot_hours'], 2),
+              'Trips' => (string) (int) $run['trip_count'],
+              'Basic' => '₱' . number_format($run['regular_hours'] * $run['rate_per_hour'], 2),
+              'OT Pay' => '₱' . number_format($run['ot_hours'] * $run['ot_rate_per_hour'], 2),
+              'Incentives' => '₱' . number_format($run['trip_incentive_total'], 2),
+              'SSS' => '−₱' . number_format($run['sss_deduction'], 2),
+              'PhilHealth' => '−₱' . number_format($run['philhealth_deduction'], 2),
+              'Pag-IBIG' => '−₱' . number_format($run['pagibig_deduction'], 2),
+          ];
+      };
+    ?>
+
+    <div class="sm:hidden space-y-4">
+      <?php if (empty($runs)): ?>
+        <p class="text-center text-gray-500 dark:text-gray-400 py-6 text-sm">No payroll runs yet &mdash; use Run Payroll above to get started</p>
+      <?php else: ?>
+        <?php foreach ($runs as $run): ?>
+          <div class="bg-white dark:bg-surface border border-gray-200 dark:border-surface-border rounded-xl p-4">
+            <div class="flex items-start justify-between gap-3 pb-3 border-b border-gray-200 dark:border-surface-border">
+              <div class="min-w-0">
+                <p class="font-bold text-gray-900 dark:text-white break-words"><?php echo htmlspecialchars($run['employee_name']); ?></p>
+                <p class="text-xs text-gray-500 dark:text-gray-400"><?php echo htmlspecialchars($run['period_start'] . ' – ' . $run['period_end']); ?></p>
+              </div>
+              <div class="shrink-0"><?php $renderStatus($run); ?></div>
+            </div>
+
+            <dl class="py-3 space-y-1.5">
+              <?php foreach ($runLines($run) as $label => $value): ?>
+                <div class="flex items-baseline justify-between gap-4">
+                  <dt class="text-sm text-gray-500 dark:text-gray-400"><?php echo htmlspecialchars($label); ?></dt>
+                  <dd class="text-sm text-gray-900 dark:text-white font-medium tabular-nums"><?php echo $value; ?></dd>
+                </div>
+              <?php endforeach; ?>
+            </dl>
+
+            <div class="flex items-baseline justify-between gap-4 pt-3 border-t border-gray-200 dark:border-surface-border">
+              <span class="text-sm font-bold text-gray-900 dark:text-white">Net Pay</span>
+              <span class="text-lg font-bold text-gray-900 dark:text-white tabular-nums">₱<?php echo number_format($run['net_pay'], 2); ?></span>
+            </div>
+
+            <div class="pt-3"><?php $renderDetails($run); ?></div>
+          </div>
+        <?php endforeach; ?>
+      <?php endif; ?>
+    </div>
+
+    <div class="hidden sm:block overflow-x-auto">
       <table class="w-full text-sm text-left whitespace-nowrap">
         <thead>
           <tr class="text-orange-600 dark:text-brand-yellow font-bold">
@@ -324,43 +425,8 @@ if (!empty($runs)) {
                 <td class="pr-6 py-2">₱<?php echo number_format($run['philhealth_deduction'], 2); ?></td>
                 <td class="pr-6 py-2">₱<?php echo number_format($run['pagibig_deduction'], 2); ?></td>
                 <td class="pr-6 py-2 font-bold">₱<?php echo number_format($run['net_pay'], 2); ?></td>
-                <td class="py-2">
-                  <?php if ($run['status'] === 'finalized' && isset($payslipIdByRun[$run['id']])): ?>
-                    <a href="<?php echo BASE_PATH; ?>/payroll/payslip/?id=<?php echo $payslipIdByRun[$run['id']]; ?>"
-                       class="inline-flex items-center gap-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-semibold px-2 py-1 rounded-full hover:opacity-80 transition">
-                      View Payslip
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="h-3 w-3"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
-                    </a>
-                  <?php elseif ($run['status'] === 'finalized'): ?>
-                    <span class="inline-block bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-semibold px-2 py-1 rounded-full">Finalized</span>
-                  <?php elseif ($isAdmin): ?>
-                    <form method="POST" data-confirm="Finalize this payslip? This cannot be undone.">
-                      <input type="hidden" name="finalize_run_id" value="<?php echo (int) $run['id']; ?>">
-                      <button type="submit" class="bg-brand-orange text-white text-xs font-semibold px-3 py-1.5 rounded-full hover:opacity-90 transition">Finalize</button>
-                    </form>
-                  <?php else: ?>
-                    <span class="inline-block bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-xs font-semibold px-2 py-1 rounded-full">Draft</span>
-                  <?php endif; ?>
-                </td>
-                <td class="py-2">
-                  <?php if (!empty($deductionsByRun[$run['id']])): ?>
-                    <?php
-                      $dedPayload = array_map(function ($d) {
-                          return [
-                              'type' => $d['type'],
-                              'amount' => number_format((float) $d['amount'], 2),
-                              'note' => $d['basis_note'],
-                              'created_at' => $d['created_at'],
-                          ];
-                      }, $deductionsByRun[$run['id']]);
-                    ?>
-                    <button type="button"
-                      onclick='openDeductionsModal(<?php echo htmlspecialchars(json_encode($dedPayload), ENT_QUOTES); ?>, <?php echo htmlspecialchars(json_encode($run['employee_name'] . " \u2014 " . $run['period_start'] . " to " . $run['period_end']), ENT_QUOTES); ?>)'
-                      class="bg-brand-orange text-white text-xs font-semibold px-3 py-1.5 rounded-full hover:opacity-90 transition">View</button>
-                  <?php else: ?>
-                    <span class="text-gray-400 text-xs">—</span>
-                  <?php endif; ?>
-                </td>
+                <td class="py-2"><?php $renderStatus($run); ?></td>
+                <td class="py-2"><?php $renderDetails($run); ?></td>
               </tr>
             <?php endforeach; ?>
           <?php endif; ?>
