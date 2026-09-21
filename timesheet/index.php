@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/attendance.php';
 requireLogin();
 
 $pageTitle = 'Timesheet';
@@ -51,6 +52,37 @@ $entriesByDate = [];
 foreach ($entries as $entry) {
     $entriesByDate[$entry['date']] = $entry;
 }
+
+// Driver and helper are paid per completed trip and never punch a timesheet, so
+// present/absent is not a concept that applies to them -- classifying their month
+// would mark every working day absent. They keep the plain day list.
+$position = null;
+if ($selectedUserId) {
+    $stmt = $db->prepare('SELECT position FROM employee_profiles WHERE user_id = ?');
+    $stmt->execute([$selectedUserId]);
+    $position = $stmt->fetchColumn() ?: null;
+}
+$tracksAttendance = $selectedUserId && !in_array($position, ['driver', 'helper'], true);
+
+$attendance = ['days' => []];
+if ($tracksAttendance) {
+    $attendance = classifyAttendance(
+        $monthStart,
+        $monthEnd,
+        $entriesByDate,
+        employeeRestDays($db, $selectedUserId),
+        date('Y-m-d')
+    );
+}
+
+// Each state gets its own chip so the distinction survives the orange "today" row,
+// which text colour alone would not.
+$stateChip = [
+    'present' => 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
+    'absent' => 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
+    'rest' => 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300',
+    'worked_rest' => 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
+];
 ?>
 
 <main class="max-w-3xl mx-auto w-full px-4 pb-32 pt-4 sm:px-6 space-y-6">
@@ -85,6 +117,11 @@ foreach ($entries as $entry) {
         $isToday = $d === $today;
         $entryHref = BASE_PATH . '/timesheet/entry/?date=' . $dateStr . ($isAdmin ? '&user_id=' . $selectedUserId : '');
 
+        $state = $attendance['days'][$dateStr] ?? 'upcoming';
+        $entry = $entriesByDate[$dateStr] ?? null;
+        $times = $entry && $entry['time_in']
+            ? substr($entry['time_in'], 0, 5) . ($entry['time_out'] ? ' – ' . substr($entry['time_out'], 0, 5) : '')
+            : '';
         $dayLabel = $isAdmin ? 'Tap to View' : 'Tap to Add';
       ?>
       <a
@@ -95,7 +132,14 @@ foreach ($entries as $entry) {
         <span class="flex items-center gap-3">
           <span class="text-right w-6 font-semibold"><?php echo $d; ?></span>
           <span class="text-xs <?php echo $isToday ? 'text-white/80' : 'text-gray-400 dark:text-gray-500'; ?> w-10"><?php echo $dayAbbr; ?></span>
-          <span class="text-sm italic <?php echo $isToday ? 'text-white/90' : 'text-gray-400 dark:text-gray-500'; ?>"><?php echo htmlspecialchars($dayLabel); ?></span>
+          <?php if ($tracksAttendance && $state !== 'upcoming'): ?>
+            <span class="text-xs font-semibold px-2 py-0.5 rounded-full <?php echo $stateChip[$state]; ?>"><?php echo htmlspecialchars(attendanceLabel($state)); ?></span>
+            <?php if ($times !== ''): ?>
+              <span class="text-xs <?php echo $isToday ? 'text-white/90' : 'text-gray-500 dark:text-gray-400'; ?>"><?php echo htmlspecialchars($times); ?></span>
+            <?php endif; ?>
+          <?php else: ?>
+            <span class="text-sm italic <?php echo $isToday ? 'text-white/90' : 'text-gray-400 dark:text-gray-500'; ?>"><?php echo htmlspecialchars($dayLabel); ?></span>
+          <?php endif; ?>
         </span>
         <svg class="w-4 h-4 <?php echo $isToday ? 'text-white' : 'text-gray-400 dark:text-gray-500'; ?>" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M12 5v14M5 12h14"></path>

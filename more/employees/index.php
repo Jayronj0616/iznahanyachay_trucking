@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../../includes/auth.php';
+require_once __DIR__ . '/../../includes/attendance.php';
 requireAdmin();
 
 $pageTitle = 'Employees';
@@ -28,6 +29,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $status = $_POST['status'] ?? 'active';
     $position = $_POST['position'] ?? '';
     $monthlySalary = trim($_POST['monthly_salary'] ?? '');
+    // Checkbox group: absent entirely when every box is cleared, which is a valid
+    // pattern meaning "no rest day" and must not be confused with "not submitted".
+    $restDays = formatRestDays((array) ($_POST['rest_days'] ?? []));
 
     $stmt = $db->prepare("SELECT id, role FROM users WHERE id = ?");
     $stmt->execute([$targetId]);
@@ -67,14 +71,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 if ($exists) {
                     $stmt = $db->prepare(
-                        'UPDATE employee_profiles SET license_number = ?, license_expiry = ?, hire_date = ?, status = ?, position = ?, monthly_salary = ? WHERE user_id = ?'
+                        'UPDATE employee_profiles SET license_number = ?, license_expiry = ?, hire_date = ?, status = ?, position = ?, monthly_salary = ?, rest_days = ? WHERE user_id = ?'
                     );
-                    $stmt->execute([$licenseNumber ?: null, $licenseExpiryVal, $hireDateVal, $status, $positionVal, $monthlySalaryVal, $targetId]);
+                    $stmt->execute([$licenseNumber ?: null, $licenseExpiryVal, $hireDateVal, $status, $positionVal, $monthlySalaryVal, $restDays, $targetId]);
                 } else {
                     $stmt = $db->prepare(
-                        'INSERT INTO employee_profiles (user_id, license_number, license_expiry, hire_date, status, position, monthly_salary) VALUES (?, ?, ?, ?, ?, ?, ?)'
+                        'INSERT INTO employee_profiles (user_id, license_number, license_expiry, hire_date, status, position, monthly_salary, rest_days) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
                     );
-                    $stmt->execute([$targetId, $licenseNumber ?: null, $licenseExpiryVal, $hireDateVal, $status, $positionVal, $monthlySalaryVal]);
+                    $stmt->execute([$targetId, $licenseNumber ?: null, $licenseExpiryVal, $hireDateVal, $status, $positionVal, $monthlySalaryVal, $restDays]);
                 }
 
                 $db->commit();
@@ -90,7 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $employees = $db->query(
-    "SELECT u.id, u.name, u.email, ep.phone, ep.license_number, ep.license_expiry, ep.hire_date, ep.status, ep.position, ep.monthly_salary
+    "SELECT u.id, u.name, u.email, ep.phone, ep.license_number, ep.license_expiry, ep.hire_date, ep.status, ep.position, ep.monthly_salary, ep.rest_days
      FROM users u
      LEFT JOIN employee_profiles ep ON ep.user_id = u.id
      WHERE u.role = 'employee' AND (ep.status IS NULL OR ep.status != 'pending')
@@ -170,6 +174,7 @@ $positionLabels = [
                     data-status="<?php echo htmlspecialchars($emp['status'] ?? 'active', ENT_QUOTES); ?>"
                     data-position="<?php echo htmlspecialchars($emp['position'] ?? '', ENT_QUOTES); ?>"
                     data-monthly-salary="<?php echo htmlspecialchars($emp['monthly_salary'] ?? '', ENT_QUOTES); ?>"
+                    data-rest-days="<?php echo htmlspecialchars($emp['rest_days'] ?? '6,7', ENT_QUOTES); ?>"
                   >Edit</button>
                 </td>
               </tr>
@@ -230,6 +235,19 @@ $positionLabels = [
           <option value="inactive">Inactive</option>
         </select>
       </div>
+      <div>
+        <span class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Rest Days</span>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Days off. These are never counted as absences.</p>
+        <div class="grid grid-cols-4 gap-2">
+          <?php foreach ([1 => 'Mon', 2 => 'Tue', 3 => 'Wed', 4 => 'Thu', 5 => 'Fri', 6 => 'Sat', 7 => 'Sun'] as $dayNum => $dayName): ?>
+            <label class="flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300">
+              <input type="checkbox" name="rest_days[]" value="<?php echo $dayNum; ?>" data-rest-day="<?php echo $dayNum; ?>"
+                     class="ts-rest-day rounded border-gray-300 dark:border-surface-border text-brand-orange focus:ring-brand-orange">
+              <?php echo $dayName; ?>
+            </label>
+          <?php endforeach; ?>
+        </div>
+      </div>
       <div class="flex gap-3">
         <button type="submit" class="flex-1 bg-brand-orange text-white font-bold rounded-lg px-5 py-3 hover:opacity-90 transition">Save Changes</button>
         <button type="button" id="ts-edit-employee-cancel" class="flex-1 border border-gray-300 dark:border-surface-border text-gray-700 dark:text-gray-300 font-bold rounded-lg px-5 py-3 hover:bg-gray-100 dark:hover:bg-white/5 transition">Cancel</button>
@@ -268,6 +286,14 @@ $positionLabels = [
     fields.hireDate.value = btn.dataset.hireDate;
     fields.status.value = btn.dataset.status || 'active';
     fields.monthlySalary.value = btn.dataset.monthlySalary || '';
+
+    // '6,7' is the stored default, so a profile that has never been edited opens
+    // with Sat/Sun ticked rather than with nothing ticked, which would read as
+    // "works every day" and is not what the row actually says.
+    const rest = (btn.dataset.restDays || '').split(',').filter(Boolean);
+    document.querySelectorAll('.ts-rest-day').forEach((box) => {
+      box.checked = rest.includes(box.dataset.restDay);
+    });
     nameHeading.textContent = btn.dataset.name;
     toggleLicenseFields();
     modal.classList.remove('hidden');
