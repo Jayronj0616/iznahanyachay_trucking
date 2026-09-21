@@ -83,6 +83,20 @@ if (!$isHourly && $position !== null) {
     $tripRow = $stmt->fetch(PDO::FETCH_ASSOC);
     $tripCount = (int) $tripRow['trip_count'];
     $tripIncentiveTotal = round((float) $tripRow['trip_sum'] * $rate, 2);
+
+    // The run they are on right now. Not filtered by month on purpose -- an open
+    // trip is open regardless of when it was assigned, and a driver looking at
+    // their dashboard wants the one they are doing, not the ones that happen to
+    // fall inside this month's boundaries.
+    $stmt = $db->prepare(
+        "SELECT t.*, r.destination
+         FROM trips_new t
+         LEFT JOIN routes r ON r.id = t.route_id
+         WHERE t.$column = ? AND t.status IN ('assigned', 'delivered')
+         ORDER BY t.id DESC LIMIT 1"
+    );
+    $stmt->execute([$userId]);
+    $activeTrip = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
 }
 
 // Real payroll history, newest period first (last 6 runs, any status)
@@ -139,6 +153,23 @@ $recentRuns = $stmt->fetchAll(PDO::FETCH_ASSOC);
         <?php echo date('j M', strtotime($monthStart)) . ' - ' . date('j M Y', strtotime($monthEnd)); ?>
       </span>
     </div>
+    <?php if (!empty($activeTrip)): ?>
+      <a href="<?php echo BASE_PATH; ?>/trips/" class="block bg-white dark:bg-surface-card border border-brand-orange/40 rounded-xl px-5 py-4 mb-3">
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <div class="text-xs text-gray-500 dark:text-gray-400">Current trip</div>
+            <div class="font-bold text-gray-900 dark:text-white mt-0.5 break-words"><?php echo htmlspecialchars($activeTrip['destination'] ?? 'Route removed'); ?></div>
+          </div>
+          <span class="shrink-0 text-xs font-semibold px-2.5 py-1 rounded-full <?php echo $activeTrip['status'] === 'delivered' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'; ?>">
+            <?php echo $activeTrip['status'] === 'delivered' ? 'Waiting for admin' : 'To deliver'; ?>
+          </span>
+        </div>
+        <div class="flex items-baseline justify-between gap-4 mt-3 pt-3 border-t border-gray-200 dark:border-surface-border">
+          <span class="text-xs text-gray-500 dark:text-gray-400">Your share (<?php echo (int) round($rate * 100); ?>%)</span>
+          <span class="font-bold text-gray-900 dark:text-white tabular-nums">₱<?php echo number_format($activeTrip['amount_per_trip'] * $rate, 2); ?></span>
+        </div>
+      </a>
+    <?php endif; ?>
     <div class="bg-white dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-xl px-5 py-4 grid grid-cols-2 gap-y-4 text-center">
       <div><div class="text-xs text-gray-500 dark:text-gray-400">Completed Trips</div><div class="font-bold text-gray-900 dark:text-white mt-1"><?php echo $tripCount; ?></div></div>
       <div><div class="text-xs text-gray-500 dark:text-gray-400">Trip Incentive</div><div class="font-bold text-gray-900 dark:text-white mt-1">₱<?php echo number_format($tripIncentiveTotal, 2); ?></div></div>
