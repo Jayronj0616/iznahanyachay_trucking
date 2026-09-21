@@ -41,14 +41,19 @@ function attemptLogin(string $email, string $password, ?string &$failReason = nu
         return false;
     }
 
+    // Position is read here rather than on every page render, because the bottom
+    // nav needs it to decide which tabs to show and the nav is included by every
+    // single page. One query at login instead of one per request.
+    $position = null;
     if ($user['role'] === 'employee') {
-        $stmt = getDB()->prepare('SELECT status FROM employee_profiles WHERE user_id = ?');
+        $stmt = getDB()->prepare('SELECT status, position FROM employee_profiles WHERE user_id = ?');
         $stmt->execute([$user['id']]);
-        $status = $stmt->fetchColumn();
-        if ($status === 'pending') {
+        $profile = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (($profile['status'] ?? null) === 'pending') {
             $failReason = 'pending';
             return false;
         }
+        $position = $profile['position'] ?? null;
     }
 
     $_SESSION['user'] = [
@@ -57,6 +62,7 @@ function attemptLogin(string $email, string $password, ?string &$failReason = nu
         'email' => $user['email'],
         'role' => $user['role'],
         'must_change_password' => (bool) $user['must_change_password'],
+        'position' => $position,
     ];
     return true;
 }
