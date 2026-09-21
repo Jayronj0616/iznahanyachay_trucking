@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/attendance.php';
 requireLogin();
 
 $pageTitle = 'Home';
@@ -52,18 +53,15 @@ if ($isHourly) {
         }
     }
 
-    // Days absent = weekdays elapsed this month (up to today) with no entry row at all.
-    // ASSUMPTION: weekday-only, no holiday calendar exists yet — will overcount on holidays.
-    $dayCursor = strtotime($monthStart);
-    $todayTs = strtotime($today);
-    while ($dayCursor <= $todayTs) {
-        $dow = (int) date('N', $dayCursor); // 1=Mon .. 7=Sun
-        $dateStr = date('Y-m-d', $dayCursor);
-        if ($dow < 6 && !isset($daysWithEntry[$dateStr])) {
-            $daysAbsent++;
-        }
-        $dayCursor = strtotime('+1 day', $dayCursor);
-    }
+    // Absences come from the shared rule in includes/attendance.php, the same one
+    // the Overview card and the timesheet calendar use. This loop used to hardcode
+    // Saturday and Sunday here, which meant an employee whose rest day fell midweek
+    // was marked absent on it — and, once rest days became editable, that this page
+    // and the Overview would have reported different numbers for the same person.
+    //
+    // Still no holiday calendar, so a public holiday is still counted as an absence.
+    $counts = classifyAttendance($monthStart, $monthEnd, $daysWithEntry, employeeRestDays($db, $userId), $today);
+    $daysAbsent = $counts['absent'];
 }
 
 // No leave table exists yet — do not fabricate numbers, show as not-yet-tracked.
