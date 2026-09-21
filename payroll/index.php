@@ -295,6 +295,37 @@ if (!empty($runs)) {
       // The status chip and the deductions button are identical in both, so they are
       // written once here and called from each. Duplicating them would mean the two
       // layouts drifting the first time either is touched.
+      // Everything a run contains, for the detail modal. Gross and the itemised
+      // deductions are included because the modal has folded in what used to be a
+      // separate deductions popup -- one action per card rather than two competing
+      // for space on a phone.
+      $runPayload = function (array $run) use ($deductionsByRun) {
+          return [
+              'label' => $run['employee_name'] . ' — ' . $run['period_start'] . ' to ' . $run['period_end'],
+              'lines' => [
+                  ['Regular Hours', number_format((float) $run['regular_hours'], 2)],
+                  ['Overtime Hours', number_format((float) $run['ot_hours'], 2)],
+                  ['Trips', (string) (int) $run['trip_count']],
+                  ['Basic Pay', '₱' . number_format($run['regular_hours'] * $run['rate_per_hour'], 2)],
+                  ['Overtime Pay', '₱' . number_format($run['ot_hours'] * $run['ot_rate_per_hour'], 2)],
+                  ['Trip Incentives', '₱' . number_format($run['trip_incentive_total'], 2)],
+                  ['Gross Pay', '₱' . number_format($run['gross_pay'], 2)],
+                  ['SSS', '−₱' . number_format($run['sss_deduction'], 2)],
+                  ['PhilHealth', '−₱' . number_format($run['philhealth_deduction'], 2)],
+                  ['Pag-IBIG', '−₱' . number_format($run['pagibig_deduction'], 2)],
+              ],
+              'net' => '₱' . number_format($run['net_pay'], 2),
+              'deductions' => array_map(function ($d) {
+                  return [
+                      'type' => $d['type'],
+                      'amount' => number_format((float) $d['amount'], 2),
+                      'note' => $d['basis_note'],
+                      'created_at' => $d['created_at'],
+                  ];
+              }, $deductionsByRun[$run['id']] ?? []),
+          ];
+      };
+
       $renderStatus = function (array $run) use ($payslipIdByRun, $isAdmin) { ?>
         <?php if ($run['status'] === 'finalized' && isset($payslipIdByRun[$run['id']])): ?>
           <a href="<?php echo BASE_PATH; ?>/payroll/payslip/?id=<?php echo $payslipIdByRun[$run['id']]; ?>"
@@ -314,41 +345,46 @@ if (!empty($runs)) {
         <?php endif; ?>
       <?php };
 
-      $renderDetails = function (array $run) use ($deductionsByRun) { ?>
-        <?php if (!empty($deductionsByRun[$run['id']])): ?>
-          <?php
-            $dedPayload = array_map(function ($d) {
-                return [
-                    'type' => $d['type'],
-                    'amount' => number_format((float) $d['amount'], 2),
-                    'note' => $d['basis_note'],
-                    'created_at' => $d['created_at'],
-                ];
-            }, $deductionsByRun[$run['id']]);
-          ?>
-          <button type="button"
-            onclick='openDeductionsModal(<?php echo htmlspecialchars(json_encode($dedPayload), ENT_QUOTES); ?>, <?php echo htmlspecialchars(json_encode($run['employee_name'] . " — " . $run['period_start'] . " to " . $run['period_end']), ENT_QUOTES); ?>)'
-            class="bg-brand-orange text-white text-xs font-semibold px-3 py-1.5 rounded-full hover:opacity-90 transition">View</button>
+      // Desktop table's Details column opens the same modal, so there is one detail
+      // view in this page rather than two that can drift.
+      $renderDetails = function (array $run) use ($runPayload) { ?>
+        <button type="button"
+          onclick='openRunDetail(<?php echo htmlspecialchars(json_encode($runPayload($run)), ENT_QUOTES); ?>)'
+          class="bg-brand-orange text-white text-xs font-semibold px-3 py-1.5 rounded-full hover:opacity-90 transition">View</button>
+      <?php };
+
+      // The card's status is a plain state. The payslip link lives in the card's
+      // action row instead, so a finalized run does not offer the same link twice.
+      $renderCardStatus = function (array $run) use ($isAdmin) { ?>
+        <?php if ($run['status'] === 'finalized'): ?>
+          <span class="inline-block bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-semibold px-2 py-1 rounded-full">Finalized</span>
+        <?php elseif ($isAdmin): ?>
+          <form method="POST" data-confirm="Finalize this payslip? This cannot be undone.">
+            <input type="hidden" name="finalize_run_id" value="<?php echo (int) $run['id']; ?>">
+            <button type="submit" class="bg-brand-orange text-white text-xs font-semibold px-3 py-1.5 rounded-full hover:opacity-90 transition">Finalize</button>
+          </form>
         <?php else: ?>
-          <span class="text-gray-400 text-xs">&mdash;</span>
+          <span class="inline-block bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-xs font-semibold px-2 py-1 rounded-full">Draft</span>
         <?php endif; ?>
       <?php };
 
-      // Earnings first, then what was taken off, then the net -- the order a payslip
-      // is read in. Net is excluded here because it is the card's footer, not a row.
-      $runLines = function (array $run) {
-          return [
-              'Reg Hrs' => number_format((float) $run['regular_hours'], 2),
-              'OT Hrs' => number_format((float) $run['ot_hours'], 2),
-              'Trips' => (string) (int) $run['trip_count'],
-              'Basic' => '₱' . number_format($run['regular_hours'] * $run['rate_per_hour'], 2),
-              'OT Pay' => '₱' . number_format($run['ot_hours'] * $run['ot_rate_per_hour'], 2),
-              'Incentives' => '₱' . number_format($run['trip_incentive_total'], 2),
-              'SSS' => '−₱' . number_format($run['sss_deduction'], 2),
-              'PhilHealth' => '−₱' . number_format($run['philhealth_deduction'], 2),
-              'Pag-IBIG' => '−₱' . number_format($run['pagibig_deduction'], 2),
-          ];
-      };
+      // A finalized run has a payslips snapshot, which is the authoritative record
+      // and prints properly -- so it links there rather than repeating the figures
+      // from payroll_runs, which is live and can legitimately differ. A draft has no
+      // snapshot to contradict, so its detail opens in the modal.
+      $renderCardAction = function (array $run) use ($payslipIdByRun, $runPayload) { ?>
+        <?php if ($run['status'] === 'finalized' && isset($payslipIdByRun[$run['id']])): ?>
+          <a href="<?php echo BASE_PATH; ?>/payroll/payslip/?id=<?php echo $payslipIdByRun[$run['id']]; ?>"
+             class="flex items-center justify-center gap-1.5 w-full bg-brand-orange text-white text-sm font-semibold px-4 py-2.5 rounded-full hover:opacity-90 transition">
+            View Payslip
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+          </a>
+        <?php else: ?>
+          <button type="button"
+            onclick='openRunDetail(<?php echo htmlspecialchars(json_encode($runPayload($run)), ENT_QUOTES); ?>)'
+            class="flex items-center justify-center w-full border border-gray-300 dark:border-surface-border text-gray-700 dark:text-gray-200 text-sm font-semibold px-4 py-2.5 rounded-full hover:bg-gray-100 dark:hover:bg-white/5 transition">View Details</button>
+        <?php endif; ?>
+      <?php };
     ?>
 
     <div class="sm:hidden space-y-4">
@@ -357,29 +393,20 @@ if (!empty($runs)) {
       <?php else: ?>
         <?php foreach ($runs as $run): ?>
           <div class="bg-white dark:bg-surface border border-gray-200 dark:border-surface-border rounded-xl p-4">
-            <div class="flex items-start justify-between gap-3 pb-3 border-b border-gray-200 dark:border-surface-border">
+            <div class="flex items-start justify-between gap-3">
               <div class="min-w-0">
                 <p class="font-bold text-gray-900 dark:text-white break-words"><?php echo htmlspecialchars($run['employee_name']); ?></p>
                 <p class="text-xs text-gray-500 dark:text-gray-400"><?php echo htmlspecialchars($run['period_start'] . ' – ' . $run['period_end']); ?></p>
               </div>
-              <div class="shrink-0"><?php $renderStatus($run); ?></div>
+              <div class="shrink-0"><?php $renderCardStatus($run); ?></div>
             </div>
 
-            <dl class="py-3 space-y-1.5">
-              <?php foreach ($runLines($run) as $label => $value): ?>
-                <div class="flex items-baseline justify-between gap-4">
-                  <dt class="text-sm text-gray-500 dark:text-gray-400"><?php echo htmlspecialchars($label); ?></dt>
-                  <dd class="text-sm text-gray-900 dark:text-white font-medium tabular-nums"><?php echo $value; ?></dd>
-                </div>
-              <?php endforeach; ?>
-            </dl>
-
-            <div class="flex items-baseline justify-between gap-4 pt-3 border-t border-gray-200 dark:border-surface-border">
-              <span class="text-sm font-bold text-gray-900 dark:text-white">Net Pay</span>
-              <span class="text-lg font-bold text-gray-900 dark:text-white tabular-nums">₱<?php echo number_format($run['net_pay'], 2); ?></span>
+            <div class="flex items-baseline justify-between gap-4 mt-4 pt-3 border-t border-gray-200 dark:border-surface-border">
+              <span class="text-sm font-semibold text-gray-500 dark:text-gray-400">Net Pay</span>
+              <span class="text-xl font-bold text-gray-900 dark:text-white tabular-nums">₱<?php echo number_format($run['net_pay'], 2); ?></span>
             </div>
 
-            <div class="pt-3"><?php $renderDetails($run); ?></div>
+            <div class="mt-4"><?php $renderCardAction($run); ?></div>
           </div>
         <?php endforeach; ?>
       <?php endif; ?>
@@ -437,48 +464,78 @@ if (!empty($runs)) {
 
 </main>
 
-<div id="deductions-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center px-4">
-  <div id="deductions-modal-backdrop" class="absolute inset-0 bg-black/50"></div>
-  <div class="relative bg-white dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-xl shadow-xl max-w-lg w-full p-6">
-    <h3 class="text-gray-900 dark:text-white font-bold text-base mb-1">Deduction Transactions</h3>
-    <p id="deductions-modal-subtitle" class="text-xs text-gray-500 dark:text-gray-400 mb-4"></p>
-    <div class="overflow-x-auto">
-      <table class="w-full text-xs text-left">
-        <thead>
-          <tr class="text-orange-600 dark:text-brand-yellow font-bold">
-            <th class="pr-4 pb-2">Type</th>
-            <th class="pr-4 pb-2">Amount</th>
-            <th class="pr-4 pb-2">Basis</th>
-            <th class="pb-2">Recorded</th>
-          </tr>
-        </thead>
-        <tbody id="deductions-modal-body" class="text-gray-700 dark:text-gray-300"></tbody>
-      </table>
+<div id="run-detail-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center px-4">
+  <div id="run-detail-backdrop" class="absolute inset-0 bg-black/50"></div>
+  <div class="relative bg-white dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-xl shadow-xl max-w-lg w-full max-h-[85vh] overflow-y-auto p-6">
+    <h3 class="text-gray-900 dark:text-white font-bold text-base mb-1">Payroll Detail</h3>
+    <p id="run-detail-subtitle" class="text-xs text-gray-500 dark:text-gray-400 mb-4"></p>
+
+    <dl id="run-detail-lines" class="space-y-1.5"></dl>
+
+    <div class="flex items-baseline justify-between gap-4 mt-3 pt-3 border-t border-gray-200 dark:border-surface-border">
+      <span class="text-sm font-bold text-gray-900 dark:text-white">Net Pay</span>
+      <span id="run-detail-net" class="text-lg font-bold text-gray-900 dark:text-white tabular-nums"></span>
     </div>
+
+    <div id="run-detail-deductions-wrap" class="mt-5 hidden">
+      <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">Deduction Transactions</h4>
+      <div id="run-detail-deductions" class="space-y-3"></div>
+    </div>
+
     <div class="flex justify-end mt-6">
-      <button type="button" id="deductions-modal-close" class="text-sm font-semibold text-gray-600 dark:text-gray-300 px-4 py-2 rounded-full hover:bg-gray-100 dark:hover:bg-white/5 transition">Close</button>
+      <button type="button" id="run-detail-close" class="text-sm font-semibold text-gray-600 dark:text-gray-300 px-4 py-2 rounded-full hover:bg-gray-100 dark:hover:bg-white/5 transition">Close</button>
     </div>
   </div>
 </div>
 
 <script>
 (function () {
-  var modal = document.getElementById('deductions-modal');
-  var backdrop = document.getElementById('deductions-modal-backdrop');
-  var closeBtn = document.getElementById('deductions-modal-close');
-  var subtitle = document.getElementById('deductions-modal-subtitle');
-  var body = document.getElementById('deductions-modal-body');
+  var modal = document.getElementById('run-detail-modal');
+  var backdrop = document.getElementById('run-detail-backdrop');
+  var closeBtn = document.getElementById('run-detail-close');
+  var subtitle = document.getElementById('run-detail-subtitle');
+  var lines = document.getElementById('run-detail-lines');
+  var net = document.getElementById('run-detail-net');
+  var dedWrap = document.getElementById('run-detail-deductions-wrap');
+  var deductions = document.getElementById('run-detail-deductions');
 
-  window.openDeductionsModal = function (deductions, label) {
-    subtitle.textContent = label;
-    body.innerHTML = deductions.map(function (d) {
-      return '<tr class="border-t border-gray-100 dark:border-surface-border">'
-        + '<td class="pr-4 py-2 font-semibold uppercase">' + d.type + '</td>'
-        + '<td class="pr-4 py-2">\u20b1' + d.amount + '</td>'
-        + '<td class="pr-4 py-2 text-gray-500 dark:text-gray-400">' + d.note + '</td>'
-        + '<td class="py-2 text-gray-400">' + d.created_at + '</td>'
-        + '</tr>';
+  function esc(v) {
+    return String(v === null || v === undefined ? '' : v)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  // The itemised deductions are a stacked list rather than a four-column table:
+  // the basis note is a sentence, and a sentence in a table cell on a phone is
+  // what put the breakdown behind a sideways scroll in the first place.
+  window.openRunDetail = function (payload) {
+    subtitle.textContent = payload.label || '';
+    lines.innerHTML = (payload.lines || []).map(function (row) {
+      return '<div class="flex items-baseline justify-between gap-4">'
+        + '<dt class="text-sm text-gray-500 dark:text-gray-400">' + esc(row[0]) + '</dt>'
+        + '<dd class="text-sm text-gray-900 dark:text-white font-medium tabular-nums">' + esc(row[1]) + '</dd>'
+        + '</div>';
     }).join('');
+    net.textContent = payload.net || '';
+
+    var ded = payload.deductions || [];
+    if (ded.length) {
+      deductions.innerHTML = ded.map(function (d) {
+        return '<div class="border-t border-gray-100 dark:border-surface-border pt-2">'
+          + '<div class="flex items-baseline justify-between gap-4">'
+          + '<span class="text-xs font-semibold uppercase text-gray-700 dark:text-gray-200">' + esc(d.type) + '</span>'
+          + '<span class="text-xs text-gray-900 dark:text-white tabular-nums">₱' + esc(d.amount) + '</span>'
+          + '</div>'
+          + '<p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">' + esc(d.note) + '</p>'
+          + '<p class="text-xs text-gray-400 mt-0.5">Recorded ' + esc(d.created_at) + '</p>'
+          + '</div>';
+      }).join('');
+      dedWrap.classList.remove('hidden');
+    } else {
+      deductions.innerHTML = '';
+      dedWrap.classList.add('hidden');
+    }
+
     modal.classList.remove('hidden');
   };
 
@@ -488,6 +545,11 @@ if (!empty($runs)) {
 
   closeBtn.addEventListener('click', closeModal);
   backdrop.addEventListener('click', closeModal);
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+      closeModal();
+    }
+  });
 })();
 </script>
 
