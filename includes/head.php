@@ -97,6 +97,49 @@ if (!isset($pageTitle)) {
   html.dark * {
     scrollbar-color: #374151 transparent;
   }
+
+  /* ------------------------------------------------------------------
+     Modal entry animation.
+
+     Every modal in this app is built the same way -- a full-screen
+     .fixed.inset-0.z-50 container holding an .absolute.inset-0 backdrop
+     and a .relative panel -- and every one is opened by removing the
+     `hidden` class. Because `hidden` is display:none, restoring display
+     restarts a CSS animation, so no JavaScript is involved here at all.
+
+     Targeting the structure rather than a dedicated class is deliberate:
+     a modal added later inherits this without anyone remembering to opt
+     in. The coupling is to that shared structure, so keep new modals
+     shaped the same way.
+     ------------------------------------------------------------------ */
+  @keyframes ts-backdrop-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  @keyframes ts-panel-in {
+    from { opacity: 0; transform: translateY(10px) scale(0.97); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  .fixed.inset-0.z-50 > .absolute.inset-0 {
+    animation: ts-backdrop-in 160ms ease-out both;
+  }
+
+  .fixed.inset-0.z-50 > .relative {
+    animation: ts-panel-in 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    transform-origin: center;
+  }
+
+  /* Reduced motion keeps the fade and drops the travel. Switching the
+     animation off entirely would remove the cue that something opened,
+     which is the one thing the animation is actually for. */
+  @media (prefers-reduced-motion: reduce) {
+    .fixed.inset-0.z-50 > .relative {
+      animation: ts-backdrop-in 120ms ease-out both;
+    }
+  }
+
 </style>
 </head>
 <body class="font-sans bg-white text-gray-900 dark:bg-surface dark:text-gray-100 min-h-screen transition-colors duration-200">
