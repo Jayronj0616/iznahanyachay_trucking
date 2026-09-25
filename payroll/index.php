@@ -9,6 +9,11 @@ include __DIR__ . '/../includes/head.php';
 
 $pageIcon = '💼';
 $pageLabel = 'Payroll';
+// Admin-only: this table is the working list of every run ever made. Reports are the
+// period-scoped, totalled view of the same data, and the only route to a CSV export.
+$topbarExtra = $isAdmin
+    ? '<a href="' . BASE_PATH . '/payroll/reports/" class="inline-flex items-center gap-2 bg-brand-orange text-white text-sm font-semibold px-4 py-2 rounded-full hover:opacity-90 transition">📄 Reports</a>'
+    : '';
 include __DIR__ . '/../includes/topbar.php';
 
 $error = null;
