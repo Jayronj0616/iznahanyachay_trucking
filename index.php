@@ -20,6 +20,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email'])) {
             exit;
         } elseif ($failReason === 'pending') {
             $loginError = 'Your account is awaiting admin approval.';
+        } elseif ($failReason === 'wrong_login') {
+            $loginError = 'Owner/Admin accounts sign in on the Admin Login page, not here.';
         } else {
             $loginError = 'Invalid email or password.';
         }
@@ -452,6 +454,11 @@ $sessionUser = currentUser();
         LOGIN
       </button>
     </form>
+
+    <div class="mt-5 flex items-center justify-between text-sm">
+      <a href="<?php echo BASE_PATH; ?>/forgot-password/" class="text-gray-500 dark:text-gray-400 hover:text-brand-orange transition">Forgot password?</a>
+      <a href="<?php echo BASE_PATH; ?>/login/admin/" class="font-semibold text-brand-orange hover:underline">Owner/Admin? Sign in here</a>
+    </div>
   </div>
 </div>
 

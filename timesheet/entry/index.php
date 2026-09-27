@@ -166,7 +166,8 @@ include __DIR__ . '/../../includes/topbar.php';
     <h2 class="text-gray-900 dark:text-white font-bold mb-4">Time In / Time Out</h2>
 
     <?php if ($isRejectedForEmployee): ?>
-      <p class="text-gray-500 dark:text-gray-400 text-sm">There was an issue with this entry — please contact your admin.</p>
+      <p class="text-gray-500 dark:text-gray-400 text-sm mb-3">There was an issue with this entry — please contact your admin.</p>
+      <a href="<?php echo BASE_PATH; ?>/timesheet/request/?date=<?php echo urlencode($date); ?>" class="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-orange hover:underline">Request a correction for this date &rarr;</a>
 
     <?php elseif ($isAdmin): ?>
       <?php if (!$entry || !$entry['time_in']): ?>
@@ -193,9 +194,12 @@ include __DIR__ . '/../../includes/topbar.php';
       <?php endif; ?>
 
     <?php elseif (!$isToday && (!$entry || !$entry['time_in'])): ?>
-      <p class="text-gray-500 dark:text-gray-400 text-sm">
+      <p class="text-gray-500 dark:text-gray-400 text-sm mb-3">
         <?php echo $date > date('Y-m-d') ? 'This is a future date — nothing to show yet.' : 'No entry was recorded for this date.'; ?>
       </p>
+      <?php if ($date <= date('Y-m-d')): ?>
+        <a href="<?php echo BASE_PATH; ?>/timesheet/request/?date=<?php echo urlencode($date); ?>" class="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-orange hover:underline">Missing a punch? Request a correction &rarr;</a>
+      <?php endif; ?>
 
     <?php elseif (!$entry || !$entry['time_in']): ?>
       <form method="POST" class="space-y-3" id="time-in-form" data-confirm="Confirm time in now?">

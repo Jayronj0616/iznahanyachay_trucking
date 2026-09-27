@@ -1,7 +1,10 @@
 <?php
-// Saves a base64 data-URL image (from webcam capture) to assets/uploads/biometrics/.
-// Returns the relative path to store in the DB, or null on failure.
-function saveBiometricPhoto(string $dataUrl, int $userId, string $date): ?string
+// Saves a base64 data-URL image (from webcam capture) to assets/uploads/{$subdir}/.
+// Returns the relative path to store in the DB, or null on failure. $subdir defaults
+// to 'biometrics' (photo-verified time-in); attendance correction requests
+// (timesheet/request/) pass 'corrections' instead, so the two kinds of photo don't
+// mix in the same folder.
+function saveBiometricPhoto(string $dataUrl, int $userId, string $date, string $subdir = 'biometrics'): ?string
 {
     if (!preg_match('/^data:image\/(png|jpe?g);base64,(.+)$/', $dataUrl, $matches)) {
         return null;
@@ -14,7 +17,7 @@ function saveBiometricPhoto(string $dataUrl, int $userId, string $date): ?string
     }
 
     $filename = $userId . '_' . $date . '_' . time() . '.' . $ext;
-    $relativePath = 'assets/uploads/biometrics/' . $filename;
+    $relativePath = 'assets/uploads/' . $subdir . '/' . $filename;
     $fullPath = __DIR__ . '/../' . $relativePath;
 
     if (file_put_contents($fullPath, $binary) === false) {

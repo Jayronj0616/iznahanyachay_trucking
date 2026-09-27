@@ -31,13 +31,58 @@ function requireAdmin(): void {
     }
 }
 
+// Payroll Master is "the one in charge of salary of computation" (the panel's own
+// phrasing) -- Admin/Owner outranks Payroll Master and can do anything Payroll
+// Master can, so this passes for either role. Anywhere Admin/Owner alone should act
+// (finalizing a payslip, approving a proposed trip rate, editing contribution
+// brackets) keeps using requireAdmin() instead.
+function requirePayrollMaster(): void {
+    requireLogin();
+    if (!in_array($_SESSION['user']['role'], ['admin', 'payroll_master'], true)) {
+        header('Location: ' . BASE_PATH . '/home/');
+        exit;
+    }
+}
+
+// The dashboard "logged in as" indicator (includes/topbar.php) and anywhere else a
+// role needs to read as a person rather than a database value.
+function roleLabel(?string $role, ?string $position = null): string {
+    if ($role === 'admin') {
+        return 'Owner/Admin';
+    }
+    if ($role === 'payroll_master') {
+        return 'Payroll Master';
+    }
+    $positionLabels = [
+        'driver' => 'Driver',
+        'helper' => 'Helper',
+        'dispatcher' => 'Dispatcher',
+        'secretary' => 'Secretary',
+        'maintenance' => 'Maintenance',
+        'liaison' => 'Liaison',
+        'operator_manager' => 'Operator Manager',
+    ];
+    return $positionLabels[$position] ?? 'Employee';
+}
+
 function attemptLogin(string $email, string $password, ?string &$failReason = null): bool {
-    $stmt = getDB()->prepare('SELECT id, name, email, password, role, must_change_password FROM users WHERE email = ?');
+    $stmt = getDB()->prepare('SELECT id, name, email, password, role, must_change_password, username FROM users WHERE email = ?');
     $stmt->execute([$email]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$user || !password_verify($password, $user['password'])) {
         $failReason = 'invalid';
+        return false;
+    }
+
+    // Admin/Owner is meant to sign in on the separate login/admin/ page with a
+    // username, not here -- but blocking every admin account here outright would
+    // lock out an existing admin the moment this shipped, before they had a chance
+    // to set one up. So the shared modal keeps accepting an admin's email UNTIL they
+    // set a username in more/staff/; only then does this branch start refusing them,
+    // pointing them at the dedicated page instead.
+    if ($user['role'] === 'admin' && !empty($user['username'])) {
+        $failReason = 'wrong_login';
         return false;
     }
 
@@ -63,6 +108,30 @@ function attemptLogin(string $email, string $password, ?string &$failReason = nu
         'role' => $user['role'],
         'must_change_password' => (bool) $user['must_change_password'],
         'position' => $position,
+    ];
+    return true;
+}
+
+// Admin/Owner's distinct sign-in: a username instead of an email, restricted to
+// role = 'admin' at the query itself so a Payroll Master or employee account can
+// never authenticate through this path even if they somehow had a username set.
+function attemptAdminLogin(string $username, string $password, ?string &$failReason = null): bool {
+    $stmt = getDB()->prepare("SELECT id, name, email, password, role, must_change_password FROM users WHERE username = ? AND role = 'admin'");
+    $stmt->execute([$username]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$user || !password_verify($password, $user['password'])) {
+        $failReason = 'invalid';
+        return false;
+    }
+
+    $_SESSION['user'] = [
+        'id' => $user['id'],
+        'name' => $user['name'],
+        'email' => $user['email'],
+        'role' => $user['role'],
+        'must_change_password' => (bool) $user['must_change_password'],
+        'position' => null,
     ];
     return true;
 }

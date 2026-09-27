@@ -45,6 +45,22 @@ if (!isset($backHref)) {
 }
 if (!isset($backLabel)) { $backLabel = ''; }
 ?>
+<?php
+// "Logged in as [role]" indicator (panel feedback), shown wherever a user is
+// authenticated -- everything topbar.php already renders is post-login only, so
+// there is no unauthenticated case to guard against here.
+$tsRoleLabel = isset($_SESSION['user'])
+    ? roleLabel($_SESSION['user']['role'] ?? null, $_SESSION['user']['position'] ?? null)
+    : null;
+?>
+<?php if ($tsRoleLabel !== null): ?>
+  <div class="max-w-3xl mx-auto w-full px-4 pt-3 sm:px-6">
+    <span class="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-full px-2.5 py-1">
+      <span class="w-1.5 h-1.5 rounded-full bg-brand-green"></span>
+      <?php echo htmlspecialchars($tsRoleLabel); ?>
+    </span>
+  </div>
+<?php endif; ?>
 <div class="flex items-center justify-between px-4 pt-4 sm:px-6 sm:pt-6 max-w-3xl mx-auto w-full">
   <div class="flex items-center gap-2 text-gray-900 dark:text-white font-semibold">
     <?php if ($backHref !== null): ?>

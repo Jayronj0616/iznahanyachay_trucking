@@ -5,6 +5,11 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/payroll.php';
 requireLogin();
 $isAdmin = $_SESSION['user']['role'] === 'admin';
+// Payroll Master is "the one in charge of salary of computation" (panel's own
+// phrasing) -- they can run payroll and see every run, same as Admin/Owner. Only
+// Admin/Owner can Finalize a run (locks in a payslip permanently) -- the same
+// propose/approve split as the trip-rate workflow in more/routes/index.php.
+$canRunPayroll = in_array($_SESSION['user']['role'], ['admin', 'payroll_master'], true);
 include __DIR__ . '/../includes/head.php';
 
 $pageIcon = '💼';
@@ -60,7 +65,7 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['finalize_
             $error = 'Finalize failed: ' . $e->getMessage();
         }
     }
-} elseif ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST') {
+} elseif ($canRunPayroll && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $periodStart = $_POST['period_start'] ?? '';
     $periodEnd = $_POST['period_end'] ?? '';
 
@@ -112,9 +117,11 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['finalize_
                     continue;
                 }
 
-                $stmt = $db->prepare('SELECT position FROM employee_profiles WHERE user_id = ?');
+                $stmt = $db->prepare('SELECT position, government_contribution_mode FROM employee_profiles WHERE user_id = ?');
                 $stmt->execute([$userId]);
-                $position = $stmt->fetchColumn() ?: null;
+                $profile = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+                $position = $profile['position'] ?? null;
+                $contributionMode = $profile['government_contribution_mode'] ?? 'employer_withholds';
                 $earnings = computePeriodEarnings($db, $userId, $position, $periodStart, $periodEnd);
                 $regularHours = $earnings['regular_hours'];
                 $otHours = $earnings['ot_hours'];
@@ -122,7 +129,7 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['finalize_
                 $tripTotal = $earnings['trip_incentive_total'];
                 $grossPay = $earnings['gross_pay'];
 
-                $deductions = applyDeductions($grossPay);
+                $deductions = applyDeductions($grossPay, $contributionMode);
                 $sss = $deductions['sss'];
                 $philhealth = $deductions['philhealth'];
                 $pagibig = $deductions['pagibig'];
@@ -207,7 +214,7 @@ foreach ($periodRows as $p) {
     $eligiblePeriods[] = $p;
 }
 
-$runs = $isAdmin
+$runs = $canRunPayroll
     ? $db->query(
         'SELECT pr.*, u.name AS employee_name
          FROM payroll_runs pr
@@ -262,7 +269,7 @@ if (!empty($runs)) {
     </div>
   <?php endif; ?>
 
-  <?php if ($isAdmin): ?>
+  <?php if ($canRunPayroll): ?>
   <div class="bg-gray-50 dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-xl p-6 mb-6">
     <h2 class="text-gray-900 dark:text-white font-bold mb-4">Run Payroll</h2>
     <?php if (empty($eligiblePeriods)): ?>
@@ -447,16 +454,16 @@ if (!empty($runs)) {
               <tr class="border-t border-gray-200 dark:border-surface-border text-gray-900 dark:text-white">
                 <td class="pr-6 py-2"><?php echo htmlspecialchars($run['employee_name']); ?></td>
                 <td class="pr-6 py-2"><?php echo htmlspecialchars($run['period_start'] . ' – ' . $run['period_end']); ?></td>
-                <td class="pr-6 py-2"><?php echo htmlspecialchars($run['regular_hours']); ?></td>
-                <td class="pr-6 py-2"><?php echo htmlspecialchars($run['ot_hours']); ?></td>
-                <td class="pr-6 py-2"><?php echo htmlspecialchars($run['trip_count']); ?></td>
-                <td class="pr-6 py-2">₱<?php echo number_format($run['regular_hours'] * $run['rate_per_hour'], 2); ?></td>
-                <td class="pr-6 py-2">₱<?php echo number_format($run['ot_hours'] * $run['ot_rate_per_hour'], 2); ?></td>
-                <td class="pr-6 py-2">₱<?php echo number_format($run['trip_incentive_total'], 2); ?></td>
-                <td class="pr-6 py-2">₱<?php echo number_format($run['sss_deduction'], 2); ?></td>
-                <td class="pr-6 py-2">₱<?php echo number_format($run['philhealth_deduction'], 2); ?></td>
-                <td class="pr-6 py-2">₱<?php echo number_format($run['pagibig_deduction'], 2); ?></td>
-                <td class="pr-6 py-2 font-bold">₱<?php echo number_format($run['net_pay'], 2); ?></td>
+                <td class="pr-6 py-2 text-right"><?php echo htmlspecialchars($run['regular_hours']); ?></td>
+                <td class="pr-6 py-2 text-right"><?php echo htmlspecialchars($run['ot_hours']); ?></td>
+                <td class="pr-6 py-2 text-right"><?php echo htmlspecialchars($run['trip_count']); ?></td>
+                <td class="pr-6 py-2 text-right">₱<?php echo number_format($run['regular_hours'] * $run['rate_per_hour'], 2); ?></td>
+                <td class="pr-6 py-2 text-right">₱<?php echo number_format($run['ot_hours'] * $run['ot_rate_per_hour'], 2); ?></td>
+                <td class="pr-6 py-2 text-right">₱<?php echo number_format($run['trip_incentive_total'], 2); ?></td>
+                <td class="pr-6 py-2 text-right">₱<?php echo number_format($run['sss_deduction'], 2); ?></td>
+                <td class="pr-6 py-2 text-right">₱<?php echo number_format($run['philhealth_deduction'], 2); ?></td>
+                <td class="pr-6 py-2 text-right">₱<?php echo number_format($run['pagibig_deduction'], 2); ?></td>
+                <td class="pr-6 py-2 text-right font-bold">₱<?php echo number_format($run['net_pay'], 2); ?></td>
                 <td class="py-2"><?php $renderStatus($run); ?></td>
                 <td class="py-2"><?php $renderDetails($run); ?></td>
               </tr>

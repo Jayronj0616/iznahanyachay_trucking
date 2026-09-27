@@ -9,10 +9,15 @@ include __DIR__ . '/../includes/head.php';
 
 $pageIcon = '⏱️';
 $pageLabel = 'Timesheet';
-$isAdminForTopbar = $_SESSION['user']['role'] === 'admin';
-$topbarExtra = !$isAdminForTopbar
-    ? '<a href="' . BASE_PATH . '/timesheet/log/" class="inline-flex items-center gap-2 bg-brand-orange text-white text-sm font-semibold px-4 py-2 rounded-full hover:opacity-90 transition">🕘 History</a>'
-    : '';
+$roleForTopbar = $_SESSION['user']['role'];
+if ($roleForTopbar === 'employee') {
+    $topbarExtra = '<a href="' . BASE_PATH . '/timesheet/log/" class="inline-flex items-center gap-2 bg-brand-orange text-white text-sm font-semibold px-4 py-2 rounded-full hover:opacity-90 transition">🕘 History</a>'
+        . '<a href="' . BASE_PATH . '/timesheet/request/" class="inline-flex items-center gap-2 border border-gray-300 dark:border-surface-border text-gray-700 dark:text-gray-200 text-sm font-semibold px-4 py-2 rounded-full hover:bg-gray-100 dark:hover:bg-white/5 transition">Request Correction</a>';
+} elseif (in_array($roleForTopbar, ['admin', 'payroll_master'], true)) {
+    $topbarExtra = '<a href="' . BASE_PATH . '/timesheet/requests/" class="inline-flex items-center gap-2 bg-brand-orange text-white text-sm font-semibold px-4 py-2 rounded-full hover:opacity-90 transition">📋 Requests</a>';
+} else {
+    $topbarExtra = '';
+}
 include __DIR__ . '/../includes/topbar.php';
 
 $db = getDB();

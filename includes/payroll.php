@@ -20,31 +20,76 @@ const OT_RATE_PER_HOUR = 110.00;
 const DRIVER_TRIP_RATE = 0.15;
 const HELPER_TRIP_RATE = 0.08;
 
-// 2026 govt contribution tables, halved for semi-monthly (15/30) cutoffs.
+/**
+ * Finds the one contribution_brackets row that applies to a monthly-equivalent
+ * salary, for a given statutory deduction type.
+ *
+ * min_monthly is inclusive, max_monthly is exclusive and NULL means "and above", so
+ * this always resolves to exactly one row -- there is no separate clamping step
+ * before the lookup, the bracket boundaries themselves are the clamp.
+ */
+function lookupContributionBracket(PDO $db, string $type, float $monthlyEquiv): ?array {
+    $stmt = $db->prepare(
+        'SELECT * FROM contribution_brackets
+         WHERE type = ? AND min_monthly <= ? AND (max_monthly IS NULL OR max_monthly > ?)
+         ORDER BY min_monthly DESC LIMIT 1'
+    );
+    $stmt->execute([$type, $monthlyEquiv, $monthlyEquiv]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $row ?: null;
+}
+
+/**
+ * The full MONTHLY employee contribution for one bracket row -- either a fixed peso
+ * amount (SSS's real-world table: a salary range maps to a specific contribution,
+ * not a formula) or rate * a base clamped between the row's base_min/base_max
+ * (PhilHealth and Pag-IBIG: a flat rate over a floored-and-capped base).
+ */
+function contributionFromBracket(array $row, float $monthlyEquiv): float {
+    if ($row['employee_share'] !== null) {
+        return (float) $row['employee_share'];
+    }
+    $base = $monthlyEquiv;
+    if ($row['base_min'] !== null) { $base = max($base, (float) $row['base_min']); }
+    if ($row['base_max'] !== null) { $base = min($base, (float) $row['base_max']); }
+    return round($base * (float) $row['rate'], 2);
+}
+
+// Brackets now come from the contribution_brackets table (see migration 030) instead
+// of hardcoded formulas, so the panel's ask -- "make it vary by salary size, from the
+// database, not hardcoded" -- is answered by editing a row in more/contribution-brackets/
+// rather than editing this file. Seeded values reproduce the original 2026 hardcoded
+// SSS/PhilHealth/Pag-IBIG formulas exactly (see migration 030's header), so this
+// rewrite changes nothing about existing figures on its own -- only a future bracket
+// edit can.
 function calculateSSS(float $periodGross): array {
     $monthlyEquiv = $periodGross * 2;
-    $msc = min(max($monthlyEquiv, 5000), 35000);
-    $msc = floor($msc / 500) * 500;
-    $employeeShare = round($msc * 0.05, 2);
-    $perCutoff = round($employeeShare / 2, 2);
-    return [$perCutoff, "MSC ₱{$msc} (monthly), 5% employee share"];
+    $row = lookupContributionBracket(getDB(), 'sss', $monthlyEquiv);
+    if ($row === null) {
+        return [0.0, 'No SSS bracket configured for this salary — nothing withheld'];
+    }
+    $perCutoff = round(contributionFromBracket($row, $monthlyEquiv) / 2, 2);
+    return [$perCutoff, (string) $row['notes']];
 }
 
 function calculatePhilHealth(float $periodGross): array {
     $monthlyEquiv = $periodGross * 2;
-    $base = min(max($monthlyEquiv, 10000), 100000);
-    $employeeShare = round($base * 0.025, 2);
-    $perCutoff = round($employeeShare / 2, 2);
-    return [$perCutoff, "Base ₱{$base} (monthly), 2.5% employee share"];
+    $row = lookupContributionBracket(getDB(), 'philhealth', $monthlyEquiv);
+    if ($row === null) {
+        return [0.0, 'No PhilHealth bracket configured for this salary — nothing withheld'];
+    }
+    $perCutoff = round(contributionFromBracket($row, $monthlyEquiv) / 2, 2);
+    return [$perCutoff, (string) $row['notes']];
 }
 
 function calculatePagibig(float $periodGross): array {
     $monthlyEquiv = $periodGross * 2;
-    $base = min($monthlyEquiv, 10000);
-    $rate = $monthlyEquiv <= 1500 ? 0.01 : 0.02;
-    $employeeShare = round($base * $rate, 2);
-    $perCutoff = round($employeeShare / 2, 2);
-    return [$perCutoff, "Base ₱{$base} (monthly), " . ($rate * 100) . "% employee share"];
+    $row = lookupContributionBracket(getDB(), 'pagibig', $monthlyEquiv);
+    if ($row === null) {
+        return [0.0, 'No Pag-IBIG bracket configured for this salary — nothing withheld'];
+    }
+    $perCutoff = round(contributionFromBracket($row, $monthlyEquiv) / 2, 2);
+    return [$perCutoff, (string) $row['notes']];
 }
 
 /**
@@ -126,11 +171,31 @@ function computePeriodEarnings(PDO $db, int $userId, ?string $position, string $
  * statutory order against whatever gross exists, and each row is reported at the
  * amount actually taken.
  *
+ * $contributionMode is the employee's employee_profiles.government_contribution_mode
+ * (migration 029). Some employees remit SSS/PhilHealth/Pag-IBIG themselves instead of
+ * having the employer withhold them -- for those, every statutory deduction is 0 and
+ * net pay equals gross, with a note explaining why rather than three blank rows that
+ * look like a bracket lookup silently found nothing.
+ *
  * Returns ['sss', 'philhealth', 'pagibig', 'total_deductions', 'net_pay',
  *          'sss_note', 'philhealth_note', 'pagibig_note'].
  */
-function applyDeductions(float $grossPay): array
+function applyDeductions(float $grossPay, string $contributionMode = 'employer_withholds'): array
 {
+    if ($contributionMode === 'self_remit') {
+        $note = 'Employee self-remits this contribution — not withheld by the employer';
+        return [
+            'sss' => 0.0,
+            'philhealth' => 0.0,
+            'pagibig' => 0.0,
+            'total_deductions' => 0.0,
+            'net_pay' => round($grossPay, 2),
+            'sss_note' => $note,
+            'philhealth_note' => $note,
+            'pagibig_note' => $note,
+        ];
+    }
+
     [$sss, $sssNote] = calculateSSS($grossPay);
     [$philhealth, $philhealthNote] = calculatePhilHealth($grossPay);
     [$pagibig, $pagibigNote] = calculatePagibig($grossPay);

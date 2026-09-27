@@ -29,6 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $status = $_POST['status'] ?? 'active';
     $position = $_POST['position'] ?? '';
     $monthlySalary = trim($_POST['monthly_salary'] ?? '');
+    $contributionMode = $_POST['government_contribution_mode'] ?? 'employer_withholds';
     // Checkbox group: absent entirely when every box is cleared, which is a valid
     // pattern meaning "no rest day" and must not be confused with "not submitted".
     $restDays = formatRestDays((array) ($_POST['rest_days'] ?? []));
@@ -49,6 +50,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Invalid position.';
     } elseif ($monthlySalary !== '' && (!is_numeric($monthlySalary) || (float) $monthlySalary <= 0)) {
         $error = 'Monthly salary must be a positive number.';
+    } elseif (!in_array($contributionMode, ['employer_withholds', 'self_remit'], true)) {
+        $error = 'Invalid government contribution setting.';
     } else {
         $stmt = $db->prepare('SELECT id FROM users WHERE email = ? AND id != ?');
         $stmt->execute([$email, $targetId]);
@@ -71,14 +74,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 if ($exists) {
                     $stmt = $db->prepare(
-                        'UPDATE employee_profiles SET license_number = ?, license_expiry = ?, hire_date = ?, status = ?, position = ?, monthly_salary = ?, rest_days = ? WHERE user_id = ?'
+                        'UPDATE employee_profiles SET license_number = ?, license_expiry = ?, hire_date = ?, status = ?, position = ?, monthly_salary = ?, rest_days = ?, government_contribution_mode = ? WHERE user_id = ?'
                     );
-                    $stmt->execute([$licenseNumber ?: null, $licenseExpiryVal, $hireDateVal, $status, $positionVal, $monthlySalaryVal, $restDays, $targetId]);
+                    $stmt->execute([$licenseNumber ?: null, $licenseExpiryVal, $hireDateVal, $status, $positionVal, $monthlySalaryVal, $restDays, $contributionMode, $targetId]);
                 } else {
                     $stmt = $db->prepare(
-                        'INSERT INTO employee_profiles (user_id, license_number, license_expiry, hire_date, status, position, monthly_salary, rest_days) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+                        'INSERT INTO employee_profiles (user_id, license_number, license_expiry, hire_date, status, position, monthly_salary, rest_days, government_contribution_mode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
                     );
-                    $stmt->execute([$targetId, $licenseNumber ?: null, $licenseExpiryVal, $hireDateVal, $status, $positionVal, $monthlySalaryVal, $restDays]);
+                    $stmt->execute([$targetId, $licenseNumber ?: null, $licenseExpiryVal, $hireDateVal, $status, $positionVal, $monthlySalaryVal, $restDays, $contributionMode]);
                 }
 
                 $db->commit();
@@ -94,7 +97,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $employees = $db->query(
-    "SELECT u.id, u.name, u.email, ep.phone, ep.license_number, ep.license_expiry, ep.hire_date, ep.status, ep.position, ep.monthly_salary, ep.rest_days
+    "SELECT u.id, u.name, u.email, ep.phone, ep.license_number, ep.license_expiry, ep.hire_date, ep.status, ep.position, ep.monthly_salary, ep.rest_days, ep.government_contribution_mode
      FROM users u
      LEFT JOIN employee_profiles ep ON ep.user_id = u.id
      WHERE u.role = 'employee' AND (ep.status IS NULL OR ep.status != 'pending')
@@ -139,6 +142,7 @@ $positionLabels = [
               <th class="pr-6 pb-2">Email</th>
               <th class="pr-6 pb-2">Position</th>
               <th class="pr-6 pb-2">Monthly Salary</th>
+              <th class="pr-6 pb-2">Gov't Contributions</th>
               <th class="pr-6 pb-2">Phone</th>
               <th class="pr-6 pb-2">License</th>
               <th class="pr-6 pb-2">Hire Date</th>
@@ -152,7 +156,8 @@ $positionLabels = [
                 <td class="pr-6 py-2"><?php echo htmlspecialchars($emp['name']); ?></td>
                 <td class="pr-6 py-2"><?php echo htmlspecialchars($emp['email']); ?></td>
                 <td class="pr-6 py-2"><?php echo htmlspecialchars($positionLabels[$emp['position']] ?? '—'); ?></td>
-                <td class="pr-6 py-2"><?php echo $emp['monthly_salary'] !== null ? '₱' . number_format((float) $emp['monthly_salary'], 2) : '—'; ?></td>
+                <td class="pr-6 py-2 text-right"><?php echo $emp['monthly_salary'] !== null ? '₱' . number_format((float) $emp['monthly_salary'], 2) : '—'; ?></td>
+                <td class="pr-6 py-2"><?php echo ($emp['government_contribution_mode'] ?? 'employer_withholds') === 'self_remit' ? 'Self-remits' : 'Employer withholds'; ?></td>
                 <td class="pr-6 py-2"><?php echo htmlspecialchars($emp['phone'] ?? '—'); ?></td>
                 <td class="pr-6 py-2"><?php echo htmlspecialchars($emp['license_number'] ?? '—'); ?></td>
                 <td class="pr-6 py-2"><?php echo htmlspecialchars($emp['hire_date'] ?? '—'); ?></td>
@@ -175,6 +180,7 @@ $positionLabels = [
                     data-position="<?php echo htmlspecialchars($emp['position'] ?? '', ENT_QUOTES); ?>"
                     data-monthly-salary="<?php echo htmlspecialchars($emp['monthly_salary'] ?? '', ENT_QUOTES); ?>"
                     data-rest-days="<?php echo htmlspecialchars($emp['rest_days'] ?? '6,7', ENT_QUOTES); ?>"
+                    data-contribution-mode="<?php echo htmlspecialchars($emp['government_contribution_mode'] ?? 'employer_withholds', ENT_QUOTES); ?>"
                   >Edit</button>
                 </td>
               </tr>
@@ -213,6 +219,14 @@ $positionLabels = [
       <div>
         <label for="ts-edit-monthly-salary" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Monthly Salary (₱)</label>
         <input type="number" name="monthly_salary" id="ts-edit-monthly-salary" step="0.01" min="0.01" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
+      </div>
+      <div>
+        <label for="ts-edit-contribution-mode" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Government-Mandated Contributions</label>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Some employees remit SSS/PhilHealth/Pag-IBIG themselves instead of having it withheld from pay.</p>
+        <select name="government_contribution_mode" id="ts-edit-contribution-mode" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
+          <option value="employer_withholds">Employer withholds (default)</option>
+          <option value="self_remit">Employee self-remits</option>
+        </select>
       </div>
       <div id="ts-edit-license-fields" class="space-y-4 hidden">
       <div>
@@ -273,7 +287,8 @@ $positionLabels = [
     licenseExpiry: document.getElementById('ts-edit-license-expiry'),
     hireDate: document.getElementById('ts-edit-hire-date'),
     status: document.getElementById('ts-edit-status'),
-    monthlySalary: document.getElementById('ts-edit-monthly-salary')
+    monthlySalary: document.getElementById('ts-edit-monthly-salary'),
+    contributionMode: document.getElementById('ts-edit-contribution-mode')
   };
 
   function openModal(btn) {
@@ -286,6 +301,7 @@ $positionLabels = [
     fields.hireDate.value = btn.dataset.hireDate;
     fields.status.value = btn.dataset.status || 'active';
     fields.monthlySalary.value = btn.dataset.monthlySalary || '';
+    fields.contributionMode.value = btn.dataset.contributionMode || 'employer_withholds';
 
     // '6,7' is the stored default, so a profile that has never been edited opens
     // with Sat/Sun ticked rather than with nothing ticked, which would read as

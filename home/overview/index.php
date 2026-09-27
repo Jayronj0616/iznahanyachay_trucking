@@ -13,7 +13,10 @@ $pageLabel = 'Overview';
 include __DIR__ . '/../../includes/topbar.php';
 
 $db = getDB();
-$isAdmin = $_SESSION['user']['role'] === 'admin';
+// Admin and Payroll Master are both staff accounts with no employee_profiles row of
+// their own, so both get the company-wide scope; only an 'employee' account (which
+// always has one) gets the "just me" scope.
+$isStaffScope = $_SESSION['user']['role'] !== 'employee';
 
 // The open period is the current month. Payroll cutoffs are semi-monthly, but the
 // client asked to see pay accruing "bago mag cutoff" -- before the cutoff -- so this
@@ -25,7 +28,7 @@ $today = date('Y-m-d');
 // Admin sees company-wide totals (they have no payroll_runs/timesheet_entries of their
 // own); employee sees only their own. Salary is finalized runs only — a draft isn't real
 // money yet. Hours are approved entries only, same rule payroll/index.php enforces.
-if ($isAdmin) {
+if ($isStaffScope) {
     $totalSalary = (float) $db->query(
         "SELECT COALESCE(SUM(net_pay), 0) FROM payroll_runs WHERE status = 'finalized'"
     )->fetchColumn();
@@ -34,7 +37,7 @@ if ($isAdmin) {
          WHERE status = 'approved' AND time_in IS NOT NULL AND time_out IS NOT NULL"
     )->fetchAll(PDO::FETCH_ASSOC);
     $staff = $db->query(
-        "SELECT u.id, p.position FROM users u
+        "SELECT u.id, p.position, p.government_contribution_mode FROM users u
          JOIN employee_profiles p ON p.user_id = u.id
          WHERE u.role = 'employee' AND p.status = 'active'"
     )->fetchAll(PDO::FETCH_ASSOC);
@@ -51,9 +54,14 @@ if ($isAdmin) {
     $stmt->execute([$userId]);
     $hourEntries = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    $stmt = $db->prepare('SELECT position FROM employee_profiles WHERE user_id = ?');
+    $stmt = $db->prepare('SELECT position, government_contribution_mode FROM employee_profiles WHERE user_id = ?');
     $stmt->execute([$userId]);
-    $staff = [['id' => $userId, 'position' => $stmt->fetchColumn() ?: null]];
+    $profile = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    $staff = [[
+        'id' => $userId,
+        'position' => $profile['position'] ?? null,
+        'government_contribution_mode' => $profile['government_contribution_mode'] ?? 'employer_withholds',
+    ]];
 }
 
 $totalHours = 0.0;
@@ -81,7 +89,8 @@ foreach ($staff as $person) {
     $position = $person['position'] ?? null;
 
     $earnings = computePeriodEarnings($db, $sid, $position, $periodStart, $periodEnd);
-    $accruedPay += applyDeductions($earnings['gross_pay'])['net_pay'];
+    $contributionMode = $person['government_contribution_mode'] ?? 'employer_withholds';
+    $accruedPay += applyDeductions($earnings['gross_pay'], $contributionMode)['net_pay'];
 
     if (in_array($position, ['driver', 'helper'], true) || $position === null) {
         continue;
@@ -120,13 +129,13 @@ $periodLabel = date('F Y');
     <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">This period &middot; <?php echo htmlspecialchars($periodLabel); ?></h2>
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <div class="bg-white dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-xl px-6 py-5 shadow-sm dark:shadow-none">
-        <div class="text-gray-900 dark:text-white font-semibold mb-1">Accruing<?php echo $isAdmin ? ' (Company)' : ''; ?></div>
+        <div class="text-gray-900 dark:text-white font-semibold mb-1">Accruing<?php echo $isStaffScope ? ' (Company)' : ''; ?></div>
         <div class="text-gray-500 dark:text-gray-400 text-xs mb-3">Earned so far — not yet paid</div>
         <div class="border-t border-gray-200 dark:border-surface-border mb-4"></div>
         <div class="text-gray-900 dark:text-white text-xl font-bold">₱<?php echo number_format($accruedPay, 2); ?></div>
       </div>
       <div class="bg-white dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-xl px-6 py-5 shadow-sm dark:shadow-none">
-        <div class="text-gray-900 dark:text-white font-semibold mb-1">Absences<?php echo $isAdmin ? ' (Company)' : ''; ?></div>
+        <div class="text-gray-900 dark:text-white font-semibold mb-1">Absences<?php echo $isStaffScope ? ' (Company)' : ''; ?></div>
         <div class="text-gray-500 dark:text-gray-400 text-xs mb-3">Rest days excluded</div>
         <div class="border-t border-gray-200 dark:border-surface-border mb-4"></div>
         <?php if ($absenceApplies): ?>
@@ -142,13 +151,13 @@ $periodLabel = date('F Y');
     <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">All time</h2>
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <div class="bg-white dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-xl px-6 py-5 shadow-sm dark:shadow-none">
-        <div class="text-gray-900 dark:text-white font-semibold mb-1">Total Salary<?php echo $isAdmin ? ' (Company)' : ''; ?></div>
+        <div class="text-gray-900 dark:text-white font-semibold mb-1">Total Salary<?php echo $isStaffScope ? ' (Company)' : ''; ?></div>
         <div class="text-gray-500 dark:text-gray-400 text-xs mb-3">Finalized payroll only</div>
         <div class="border-t border-gray-200 dark:border-surface-border mb-4"></div>
         <div class="text-gray-900 dark:text-white text-xl font-bold">₱<?php echo number_format($totalSalary, 2); ?></div>
       </div>
       <div class="bg-white dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-xl px-6 py-5 shadow-sm dark:shadow-none">
-        <div class="text-gray-900 dark:text-white font-semibold mb-1">Total Hours<?php echo $isAdmin ? ' (Company)' : ''; ?></div>
+        <div class="text-gray-900 dark:text-white font-semibold mb-1">Total Hours<?php echo $isStaffScope ? ' (Company)' : ''; ?></div>
         <div class="text-gray-500 dark:text-gray-400 text-xs mb-3">Approved entries, every period</div>
         <div class="border-t border-gray-200 dark:border-surface-border mb-4"></div>
         <div class="text-gray-900 dark:text-white text-xl font-bold"><?php echo number_format($totalHours, 2); ?>h</div>

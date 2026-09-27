@@ -9,6 +9,8 @@ Base URL: `http://localhost/trucking_system`
 the pre-demo bug sweep. Every step was walked in a browser against the live database on the 16th,
 except the webcam capture in step 27 (needs a real camera). The 19th's changes affect steps 1, 27, 37
 and 40, add step 40b, and **retire one ordering rule that is no longer true** — all marked below.
+Revised again **2026-09-25**: payroll reporting was built, adding **step 40c** and two rows to the page
+reference. That step is not yet browser-verified — see the note on it.
 
 > ### Read this before you record
 >
@@ -30,6 +32,10 @@ and 40, add step 40b, and **retire one ordering rule that is no longer true** �
      Without it, every button on the Trips page fails.
    - `024_timesheet_approval_unique.sql` (new 2026-09-19) stops the same period being approved twice.
      Both are already applied on the machine this was written on; check before recording elsewhere.
+   - **Migrations 027–033 (new 2026-09-27, client revision branch `client-revisions`)** add the
+     Payroll Master role, the separate Admin Login page, forgot-password, database-driven
+     SSS/PhilHealth/Pag-IBIG brackets, the trip-rate approval workflow, and attendance correction
+     requests. Run `php database/migrate.php run` before recording on this branch.
 3. **Camera permission granted to localhost** in the browser, before recording. The permission
    prompt appearing mid-demo is awkward, and the time-in step needs the webcam.
 4. **Demo data — already seeded on 2026-09-16.** The database now has:
@@ -43,16 +49,25 @@ and 40, add step 40b, and **retire one ordering rule that is no longer true** �
    | Trips | 3 accepted (incl. one delivered 09-13 and accepted 09-16) |
    | Payroll | Sept 1–30 run for 4 employees; Charles finalized, other 3 still draft |
 
-   **Test logins — re-verified 2026-09-19 against the stored hashes, all three confirmed working:**
+   **Test logins — re-verified 2026-09-19 against the stored hashes, all three confirmed working.**
+   **Updated 2026-09-27: the Owner/Admin account now signs in on a separate page with a username,
+   not the shared employee modal** (client revision — see the session note in SYSTEM.md). The shared
+   modal now refuses `admin@trucking.com` outright and points to Admin Login instead.
 
-   | Email | Password | Role |
-   |-------|----------|------|
-   | `admin@trucking.com` | `DemoAdmin2026!` | Admin |
-   | `employee1@trucking.com` | `DemoUser2026!` | Hourly (Dispatcher) |
-   | `charles@trucking.com` | `DemoUser2026!` | Driver |
+   | Login page | Identifier | Password | Role |
+   |------------|-----------|----------|------|
+   | `/login/admin/` | `owner.admin` (username) | `DemoAdmin2026!` | Owner/Admin |
+   | `/` (shared modal) | `pat.payroll@trucking.com` | set on creation — see below | Payroll Master |
+   | `/` (shared modal) | `employee1@trucking.com` | `DemoUser2026!` | Hourly (Dispatcher) |
+   | `/` (shared modal) | `charles@trucking.com` | `DemoUser2026!` | Driver |
 
-   None of the three is flagged for a forced password change, so none of them will be hijacked by
-   the Change Password screen on first login. **Change these before the system is used for real.**
+   The Payroll Master demo account doesn't exist until you create one from **Staff Accounts**
+   (Settings, Owner/Admin only) — Full Name, Email, Temporary Password, then have that person log
+   in once and set their own password (forced on first login, same as an invited employee).
+
+   None of the employee/driver rows is flagged for a forced password change, so neither will be
+   hijacked by the Change Password screen on first login. **Change these before the system is used
+   for real.**
 
    > Two of these had drifted out of sync with the database and did not work as written here; they
    > were reset on 2026-09-19 to match. Passwords are bcrypt-hashed and cannot be read back, so if
@@ -199,6 +214,7 @@ Back to full browser width at step 33.
 | 39 | `/payroll/` | Click **View** on a row's deductions | SSS, PhilHealth and Pag-IBIG, each itemized with the bracket it came from, halved for a semi-monthly period. |
 | 40 | `/payroll/` | **Finalize** one run, then **Run Payroll** again for the same period | Finalize snapshots it to payslips and locks it. Re-running skips anyone already paid for those exact dates. Watch the Status cell — it turns into a **View Payslip** link. |
 | 40b | `/payroll/payslip/?id=…` | Click **View Payslip** on the row you just finalized. Then hit **Print** | **New 2026-09-19 — the strongest place to end the payroll section.** Before this, Finalize had no visible result at all: the payslips table was written and never read. This renders the **snapshot**, not the live run, which is the point — what someone was told they were paid cannot change afterwards if a rate constant is edited. Itemised earnings, itemised deductions with the bracket each came from, and the net. Print strips the app shell. **Worth demonstrating the access rule too:** log in as a different employee and change the `id` in the URL — you get "You do not have access to that payslip". Admins see everyone's; an employee sees only their own. |
+| 40c | `/payroll/reports/` | Click **Reports** in the Payroll topbar. Read the four headline cards, then the **Statutory Remittance** panel, then scroll the **Payroll Register** to its TOTAL row. Finish by clicking **Export CSV** and opening the file | **New 2026-09-25 — the answer to "what do I hand my accountant".** The Payroll page is a working list of every run ever made, with no totals and no filter; this is the same data scoped to one period and added up. Three things are worth saying out loud. **One:** the remittance panel answers "how much SSS do I send this month" — previously that meant adding rows up by hand. **Two:** Cost by Pay Model splits the hourly wage bill from the cost of deliveries, which is this company's defining distinction. **Three:** it counts **finalized runs only** by default and tells you how many drafts it left out — a draft is not committed pay, so including one would overstate a remittance figure. The CSV is the system's only export; it emits raw numbers so a spreadsheet can sum them. |
 
 ---
 
@@ -208,7 +224,7 @@ Back to full browser width at step 33.
 |---|------|---------|---------|
 | 41 | Any page | Hit the **theme toggle** in the top bar | Dark and light throughout. Do it on a table-heavy page. |
 | 42 | `/more/about/`, `/more/privacy-policy/` | Open both briefly | The last two content pages. Both require login like everything else. |
-| 43 | — | Close on what is not built | QR clock-in, leave and holidays, 13th-month pay, manual adjustments. **Do not raise BIR withholding with the client** — it is tracked in `SYSTEM.md` as internal future work and is deliberately left off this list. If they ask about tax directly, answer honestly: the system withholds SSS, PhilHealth and Pag-IBIG only. Do not volunteer it. |
+| 43 | — | Close on what is not built | QR clock-in, leave and holidays, 13th-month pay, manual adjustments, and PDF/printed reports (CSV export exists as of 2026-09-25, PDF does not). **Do not raise BIR withholding with the client** — it is tracked in `SYSTEM.md` as internal future work and is deliberately left off this list. If they ask about tax directly, answer honestly: the system withholds SSS, PhilHealth and Pag-IBIG only. Do not volunteer it. |
 
 ---
 
@@ -230,6 +246,8 @@ Every page in the system and who can reach it.
 | `/timesheet/review/` | **Admin only** | Bulk period approval |
 | `/payroll/` | Any login | Admin runs and finalizes; employee sees only their own runs |
 | `/payroll/payslip/?id=N` | Any login | Finalized snapshot. Admin opens any; an employee opens only their own — a colleague's id is refused |
+| `/payroll/reports/` | **Admin only** | Period-scoped register with totals, remittance summary, cost by pay model |
+| `/payroll/reports/export.php` | **Admin only** | CSV download of the register — the system's only export |
 | `/more/` | Any login | Settings menu, role-aware |
 | `/more/profile/` | Any login | Self-editable details + read-only employment info |
 | `/more/employees/` | **Admin only** | Roster + edit modal |

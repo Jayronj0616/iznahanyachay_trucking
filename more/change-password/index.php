@@ -3,13 +3,17 @@ require_once __DIR__ . '/../../includes/auth.php';
 requireLogin();
 
 $pageTitle = 'Set Your Password';
-include __DIR__ . '/../../includes/head.php';
 
 $db = getDB();
 $userId = (int) $_SESSION['user']['id'];
 $forced = !empty($_SESSION['user']['must_change_password']);
 $error = null;
 
+// The success path redirects with header(), so this has to run BEFORE head.php
+// prints any HTML -- head.php used to come first, which meant a successful save
+// warned "headers already sent" and never actually redirected under any php.ini
+// with output_buffering off (this codebase's other POST-then-redirect pages, e.g.
+// index.php's login handler, all follow this order for the same reason).
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $currentPassword = $_POST['current_password'] ?? '';
     $newPassword = $_POST['new_password'] ?? '';
@@ -33,6 +37,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 }
+
+include __DIR__ . '/../../includes/head.php';
 ?>
 
 <main class="max-w-md mx-auto w-full px-4 pb-16 pt-12 sm:px-6 space-y-6">
