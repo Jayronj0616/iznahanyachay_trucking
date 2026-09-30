@@ -29,31 +29,52 @@ function tripIsValidDriver(PDO $db, int $driverId): bool {
     return (bool) $stmt->fetch();
 }
 
-function tripIsValidHelper(PDO $db, ?int $helperId): bool {
-    if ($helperId === null) {
+// $helperIds: array of ints, may be empty (a trip needs no helper at all).
+function tripAreValidHelpers(PDO $db, array $helperIds): bool {
+    if (empty($helperIds)) {
         return true;
     }
+    $placeholders = implode(',', array_fill(0, count($helperIds), '?'));
     $stmt = $db->prepare(
-        "SELECT u.id FROM users u JOIN employee_profiles ep ON ep.user_id = u.id
-         WHERE u.id = ? AND ep.position = 'helper' AND ep.status = 'active'"
+        "SELECT COUNT(*) FROM users u JOIN employee_profiles ep ON ep.user_id = u.id
+         WHERE u.id IN ($placeholders) AND ep.position = 'helper' AND ep.status = 'active'"
     );
-    $stmt->execute([$helperId]);
-    return (bool) $stmt->fetch();
+    $stmt->execute($helperIds);
+    return (int) $stmt->fetchColumn() === count(array_unique($helperIds));
 }
 
-// Only 'assigned' counts as busy — once a trip is 'delivered' the driver/helper are physically
+// Only 'assigned' counts as busy — once a trip is 'delivered' the driver/helper(s) are physically
 // free to take the next run, even though an admin hasn't accepted the delivery for payment yet.
-// Excludes $excludeTripId so editing a trip doesn't flag its own current driver/helper as "busy".
-function tripDriverOrHelperBusy(PDO $db, int $driverId, ?int $helperId, ?int $excludeTripId = null): bool {
-    $sql = "SELECT id FROM trips_new WHERE status = 'assigned' AND (driver_id = ? OR helper_id = ? OR driver_id = ? OR helper_id = ?)";
-    $params = [$driverId, $driverId, $helperId, $helperId];
+// Excludes $excludeTripId so editing a trip doesn't flag its own current driver/helpers as "busy".
+function tripDriverOrHelperBusy(PDO $db, int $driverId, array $helperIds, ?int $excludeTripId = null): bool {
+    $sql = "SELECT t.id FROM trips_new t
+            LEFT JOIN trip_helpers th ON th.trip_id = t.id
+            WHERE t.status = 'assigned' AND (t.driver_id = ?";
+    $params = [$driverId];
+
+    if (!empty($helperIds)) {
+        $placeholders = implode(',', array_fill(0, count($helperIds), '?'));
+        $sql .= " OR t.driver_id IN ($placeholders) OR th.helper_id IN ($placeholders)";
+        $params = array_merge($params, $helperIds, $helperIds);
+    }
+    $sql .= ')';
+
     if ($excludeTripId !== null) {
-        $sql .= ' AND id != ?';
+        $sql .= ' AND t.id != ?';
         $params[] = $excludeTripId;
     }
     $stmt = $db->prepare($sql);
     $stmt->execute($params);
     return (bool) $stmt->fetch();
+}
+
+// Normalizes the helper_id[] checkbox group into a deduplicated array of ints. Absent entirely
+// (every box cleared) is a valid state meaning "no helper on this trip" -- same pattern as
+// rest_days[] in more/employees/index.php.
+function tripParseHelperIds(array $raw): array {
+    $ids = array_map('intval', $raw);
+    $ids = array_filter($ids, fn($id) => $id > 0);
+    return array_values(array_unique($ids));
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -62,39 +83,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'create') {
         $routeId = (int) ($_POST['route_id'] ?? 0);
         $driverId = (int) ($_POST['driver_id'] ?? 0);
-        $helperId = isset($_POST['helper_id']) && $_POST['helper_id'] !== '' ? (int) $_POST['helper_id'] : null;
+        $helperIds = tripParseHelperIds((array) ($_POST['helper_id'] ?? []));
 
         $route = tripFindActiveRoute($db, $routeId);
         $validDriver = tripIsValidDriver($db, $driverId);
-        $validHelper = tripIsValidHelper($db, $helperId);
-        $driverOrHelperBusy = $validDriver && $validHelper && tripDriverOrHelperBusy($db, $driverId, $helperId);
+        $validHelpers = tripAreValidHelpers($db, $helperIds);
+        $driverOrHelperBusy = $validDriver && $validHelpers && tripDriverOrHelperBusy($db, $driverId, $helperIds);
 
         if (!$route) {
             $error = 'Please select a valid active route.';
         } elseif (!$validDriver) {
             $error = 'Please select a valid active driver.';
-        } elseif (!$validHelper) {
-            $error = 'Please select a valid active helper.';
+        } elseif (!$validHelpers) {
+            $error = 'Please select valid active helpers.';
         } elseif ($driverOrHelperBusy) {
-            $error = 'The selected driver or helper already has a trip in progress. Mark it delivered first.';
+            $error = 'The selected driver or a selected helper already has a trip in progress. Mark it delivered first.';
         } else {
-            $stmt = $db->prepare(
-                'INSERT INTO trips_new (route_id, driver_id, helper_id, amount_per_trip, status, started_at)
-                 VALUES (?, ?, ?, ?, ?, NOW())'
-            );
-            $stmt->execute([$routeId, $driverId, $helperId, $route['amount_per_trip'], 'assigned']);
-            $success = 'Trip assigned.';
+            $db->beginTransaction();
+            try {
+                $stmt = $db->prepare(
+                    'INSERT INTO trips_new (route_id, driver_id, amount_per_trip, status, started_at)
+                     VALUES (?, ?, ?, ?, NOW())'
+                );
+                $stmt->execute([$routeId, $driverId, $route['amount_per_trip'], 'assigned']);
+                $tripId = (int) $db->lastInsertId();
+
+                $stmt = $db->prepare('INSERT INTO trip_helpers (trip_id, helper_id) VALUES (?, ?)');
+                foreach ($helperIds as $hid) {
+                    $stmt->execute([$tripId, $hid]);
+                }
+
+                $db->commit();
+                $success = 'Trip assigned.';
+            } catch (Exception $e) {
+                $db->rollBack();
+                $error = 'Failed to assign trip: ' . $e->getMessage();
+            }
         }
     } elseif ($action === 'edit') {
         $tripId = (int) ($_POST['trip_id'] ?? 0);
         $routeId = (int) ($_POST['route_id'] ?? 0);
         $driverId = (int) ($_POST['driver_id'] ?? 0);
-        $helperId = isset($_POST['helper_id']) && $_POST['helper_id'] !== '' ? (int) $_POST['helper_id'] : null;
+        $helperIds = tripParseHelperIds((array) ($_POST['helper_id'] ?? []));
 
         $route = tripFindActiveRoute($db, $routeId);
         $validDriver = tripIsValidDriver($db, $driverId);
-        $validHelper = tripIsValidHelper($db, $helperId);
-        $driverOrHelperBusy = $validDriver && $validHelper && tripDriverOrHelperBusy($db, $driverId, $helperId, $tripId);
+        $validHelpers = tripAreValidHelpers($db, $helperIds);
+        $driverOrHelperBusy = $validDriver && $validHelpers && tripDriverOrHelperBusy($db, $driverId, $helperIds, $tripId);
 
         $stmt = $db->prepare("SELECT id FROM trips_new WHERE id = ? AND status = 'assigned'");
         $stmt->execute([$tripId]);
@@ -106,19 +141,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Please select a valid active route.';
         } elseif (!$validDriver) {
             $error = 'Please select a valid active driver.';
-        } elseif (!$validHelper) {
-            $error = 'Please select a valid active helper.';
+        } elseif (!$validHelpers) {
+            $error = 'Please select valid active helpers.';
         } elseif ($driverOrHelperBusy) {
-            $error = 'The selected driver or helper already has another trip in progress.';
+            $error = 'The selected driver or a selected helper already has another trip in progress.';
         } else {
-            // Re-snapshots amount_per_trip from the (possibly new) route. Only reachable while
-            // the trip is still 'assigned' — a delivered trip must be returned to in-progress first.
-            $stmt = $db->prepare(
-                "UPDATE trips_new SET route_id = ?, driver_id = ?, helper_id = ?, amount_per_trip = ?
-                 WHERE id = ? AND status = 'assigned'"
-            );
-            $stmt->execute([$routeId, $driverId, $helperId, $route['amount_per_trip'], $tripId]);
-            $success = 'Trip updated.';
+            $db->beginTransaction();
+            try {
+                // Re-snapshots amount_per_trip from the (possibly new) route. Only reachable while
+                // the trip is still 'assigned' — a delivered trip must be returned to in-progress first.
+                $stmt = $db->prepare(
+                    "UPDATE trips_new SET route_id = ?, driver_id = ?, amount_per_trip = ?
+                     WHERE id = ? AND status = 'assigned'"
+                );
+                $stmt->execute([$routeId, $driverId, $route['amount_per_trip'], $tripId]);
+
+                // Simplest correct sync for a small per-trip list: clear and re-insert rather than
+                // diffing old vs new helper sets.
+                $stmt = $db->prepare('DELETE FROM trip_helpers WHERE trip_id = ?');
+                $stmt->execute([$tripId]);
+                $stmt = $db->prepare('INSERT INTO trip_helpers (trip_id, helper_id) VALUES (?, ?)');
+                foreach ($helperIds as $hid) {
+                    $stmt->execute([$tripId, $hid]);
+                }
+
+                $db->commit();
+                $success = 'Trip updated.';
+            } catch (Exception $e) {
+                $db->rollBack();
+                $error = 'Failed to update trip: ' . $e->getMessage();
+            }
         }
     } elseif ($action === 'cancel') {
         $tripId = (int) ($_POST['trip_id'] ?? 0);
@@ -171,7 +223,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $db->beginTransaction();
         try {
-            $stmt = $db->prepare("SELECT driver_id, helper_id, delivered_at FROM trips_new WHERE id = ? AND status = 'delivered' FOR UPDATE");
+            $stmt = $db->prepare("SELECT driver_id, delivered_at FROM trips_new WHERE id = ? AND status = 'delivered' FOR UPDATE");
             $stmt->execute([$tripId]);
             $trip = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -191,8 +243,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $stmt = $db->prepare('INSERT INTO trip_attendance (trip_id, user_id, role, date) VALUES (?, ?, ?, ?)');
                 $stmt->execute([$tripId, $trip['driver_id'], 'driver', $attendanceDate]);
-                if ($trip['helper_id'] !== null) {
-                    $stmt->execute([$tripId, $trip['helper_id'], 'helper', $attendanceDate]);
+
+                $helperStmt = $db->prepare('SELECT helper_id FROM trip_helpers WHERE trip_id = ?');
+                $helperStmt->execute([$tripId]);
+                foreach ($helperStmt->fetchAll(PDO::FETCH_COLUMN) as $helperId) {
+                    $stmt->execute([$tripId, $helperId, 'helper', $attendanceDate]);
                 }
 
                 $db->commit();
@@ -218,11 +273,15 @@ $helpers = $db->query(
 )->fetchAll(PDO::FETCH_ASSOC);
 
 $trips = $db->query(
-    "SELECT t.*, r.destination, d.name AS driver_name, h.name AS helper_name
+    "SELECT t.*, r.destination, d.name AS driver_name,
+            GROUP_CONCAT(h.name ORDER BY h.name SEPARATOR ', ') AS helper_names,
+            GROUP_CONCAT(h.id ORDER BY h.name SEPARATOR ',') AS helper_ids
      FROM trips_new t
      JOIN routes r ON r.id = t.route_id
      JOIN users d ON d.id = t.driver_id
-     LEFT JOIN users h ON h.id = t.helper_id
+     LEFT JOIN trip_helpers th ON th.trip_id = t.id
+     LEFT JOIN users h ON h.id = th.helper_id
+     GROUP BY t.id
      ORDER BY t.created_at DESC
      LIMIT 100"
 )->fetchAll(PDO::FETCH_ASSOC);
@@ -266,13 +325,20 @@ $trips = $db->query(
           </select>
         </div>
         <div>
-          <label for="trip-helper-id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Helper (optional)</label>
-          <select id="trip-helper-id" name="helper_id" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
-            <option value="">No helper</option>
-            <?php foreach ($helpers as $h): ?>
-              <option value="<?php echo (int) $h['id']; ?>"><?php echo htmlspecialchars($h['name']); ?></option>
-            <?php endforeach; ?>
-          </select>
+          <span class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Helpers (optional, any number)</span>
+          <?php if (empty($helpers)): ?>
+            <p class="text-xs text-gray-500 dark:text-gray-400">No active employees with Position = Helper.</p>
+          <?php else: ?>
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              <?php foreach ($helpers as $h): ?>
+                <label class="flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300">
+                  <input type="checkbox" name="helper_id[]" value="<?php echo (int) $h['id']; ?>"
+                         class="rounded border-gray-300 dark:border-surface-border text-brand-orange focus:ring-brand-orange">
+                  <?php echo htmlspecialchars($h['name']); ?>
+                </label>
+              <?php endforeach; ?>
+            </div>
+          <?php endif; ?>
         </div>
         <button type="submit" class="bg-brand-orange text-white font-bold rounded-lg px-5 py-3 hover:opacity-90 transition">Assign Trip</button>
       </form>
@@ -301,8 +367,8 @@ $trips = $db->query(
               <tr class="border-t border-gray-200 dark:border-surface-border text-gray-900 dark:text-white">
                 <td class="pr-6 py-2"><?php echo htmlspecialchars($trip['destination']); ?></td>
                 <td class="pr-6 py-2"><?php echo htmlspecialchars($trip['driver_name']); ?></td>
-                <td class="pr-6 py-2"><?php echo htmlspecialchars($trip['helper_name'] ?? '—'); ?></td>
-                <td class="pr-6 py-2">₱<?php echo number_format((float) $trip['amount_per_trip'], 2); ?></td>
+                <td class="pr-6 py-2"><?php echo htmlspecialchars($trip['helper_names'] ?? '—'); ?></td>
+                <td class="pr-6 py-2 text-right">₱<?php echo number_format((float) $trip['amount_per_trip'], 2); ?></td>
                 <td class="pr-6 py-2">
                   <?php
                     $statusClasses = [
@@ -333,7 +399,7 @@ $trips = $db->query(
                         data-id="<?php echo (int) $trip['id']; ?>"
                         data-route-id="<?php echo (int) $trip['route_id']; ?>"
                         data-driver-id="<?php echo (int) $trip['driver_id']; ?>"
-                        data-helper-id="<?php echo (int) ($trip['helper_id'] ?? 0); ?>"
+                        data-helper-ids="<?php echo htmlspecialchars($trip['helper_ids'] ?? '', ENT_QUOTES); ?>"
                       >Edit</button>
                       <form method="POST" data-confirm="Mark this trip as delivered? It still needs your acceptance before it is paid.">
                         <input type="hidden" name="action" value="deliver">
@@ -403,13 +469,20 @@ $trips = $db->query(
         </select>
       </div>
       <div>
-        <label for="ts-edit-trip-helper-id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Helper (optional)</label>
-        <select id="ts-edit-trip-helper-id" name="helper_id" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
-          <option value="">No helper</option>
-          <?php foreach ($helpers as $h): ?>
-            <option value="<?php echo (int) $h['id']; ?>"><?php echo htmlspecialchars($h['name']); ?></option>
-          <?php endforeach; ?>
-        </select>
+        <span class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Helpers (optional, any number)</span>
+        <?php if (empty($helpers)): ?>
+          <p class="text-xs text-gray-500 dark:text-gray-400">No active employees with Position = Helper.</p>
+        <?php else: ?>
+          <div class="grid grid-cols-2 gap-2">
+            <?php foreach ($helpers as $h): ?>
+              <label class="flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300">
+                <input type="checkbox" name="helper_id[]" value="<?php echo (int) $h['id']; ?>" data-helper-checkbox
+                       class="rounded border-gray-300 dark:border-surface-border text-brand-orange focus:ring-brand-orange">
+                <?php echo htmlspecialchars($h['name']); ?>
+              </label>
+            <?php endforeach; ?>
+          </div>
+        <?php endif; ?>
       </div>
       <div class="flex gap-3">
         <button type="submit" class="flex-1 bg-brand-orange text-white font-bold rounded-lg px-5 py-3 hover:opacity-90 transition">Save Changes</button>
@@ -428,15 +501,20 @@ $trips = $db->query(
   var fields = {
     id: document.getElementById('ts-edit-trip-id'),
     routeId: document.getElementById('ts-edit-trip-route-id'),
-    driverId: document.getElementById('ts-edit-trip-driver-id'),
-    helperId: document.getElementById('ts-edit-trip-helper-id')
+    driverId: document.getElementById('ts-edit-trip-driver-id')
   };
+  var helperCheckboxes = document.querySelectorAll('[data-helper-checkbox]');
 
   function openModal(btn) {
     fields.id.value = btn.dataset.id;
     fields.routeId.value = btn.dataset.routeId;
     fields.driverId.value = btn.dataset.driverId;
-    fields.helperId.value = btn.dataset.helperId === '0' ? '' : btn.dataset.helperId;
+
+    var selected = (btn.dataset.helperIds || '').split(',').filter(Boolean);
+    helperCheckboxes.forEach(function (box) {
+      box.checked = selected.indexOf(box.value) !== -1;
+    });
+
     modal.classList.remove('hidden');
   }
 

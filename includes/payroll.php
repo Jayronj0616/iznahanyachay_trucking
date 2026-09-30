@@ -113,14 +113,25 @@ function computePeriodEarnings(PDO $db, int $userId, ?string $position, string $
     $tripTotal = 0.0;
 
     if ($isDriver || $isHelper) {
-        $column = $isDriver ? 'driver_id' : 'helper_id';
         $rate = $isDriver ? DRIVER_TRIP_RATE : HELPER_TRIP_RATE;
 
-        $stmt = $db->prepare(
-            "SELECT COUNT(*) AS trip_count, COALESCE(SUM(amount_per_trip), 0) AS trip_sum
-             FROM trips_new
-             WHERE $column = ? AND status = 'completed' AND DATE(completed_at) BETWEEN ? AND ?"
-        );
+        // A trip can now have several helpers (trip_helpers), each earning the same helper
+        // commission independently on the same trip -- a driver still matches by trips_new.driver_id
+        // directly, since a trip has exactly one driver.
+        if ($isDriver) {
+            $stmt = $db->prepare(
+                "SELECT COUNT(*) AS trip_count, COALESCE(SUM(amount_per_trip), 0) AS trip_sum
+                 FROM trips_new
+                 WHERE driver_id = ? AND status = 'completed' AND DATE(completed_at) BETWEEN ? AND ?"
+            );
+        } else {
+            $stmt = $db->prepare(
+                "SELECT COUNT(*) AS trip_count, COALESCE(SUM(t.amount_per_trip), 0) AS trip_sum
+                 FROM trips_new t
+                 JOIN trip_helpers th ON th.trip_id = t.id
+                 WHERE th.helper_id = ? AND t.status = 'completed' AND DATE(t.completed_at) BETWEEN ? AND ?"
+            );
+        }
         $stmt->execute([$userId, $periodStart, $periodEnd]);
         $tripRow = $stmt->fetch(PDO::FETCH_ASSOC);
         $tripCount = (int) $tripRow['trip_count'];

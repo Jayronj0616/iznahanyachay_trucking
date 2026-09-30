@@ -40,18 +40,30 @@ $pageLabel = 'My Trips';
 include __DIR__ . '/../includes/topbar.php';
 
 $isDriver = $position === 'driver';
-$column = $isDriver ? 'driver_id' : 'helper_id';
 // Same rates the payroll run uses, from the same file, so what a driver reads
 // here is what the payslip will eventually say.
 $share = $isDriver ? DRIVER_TRIP_RATE : HELPER_TRIP_RATE;
 
-$stmt = $db->prepare(
-    "SELECT t.*, r.destination
-     FROM trips_new t
-     LEFT JOIN routes r ON r.id = t.route_id
-     WHERE t.$column = ?
-     ORDER BY FIELD(t.status, 'assigned', 'delivered', 'completed', 'cancelled'), t.id DESC"
-);
+// A trip has one driver but can have several helpers (trip_helpers), so the two positions need
+// different join shapes rather than one interpolated column name.
+if ($isDriver) {
+    $stmt = $db->prepare(
+        "SELECT t.*, r.destination
+         FROM trips_new t
+         LEFT JOIN routes r ON r.id = t.route_id
+         WHERE t.driver_id = ?
+         ORDER BY FIELD(t.status, 'assigned', 'delivered', 'completed', 'cancelled'), t.id DESC"
+    );
+} else {
+    $stmt = $db->prepare(
+        "SELECT t.*, r.destination
+         FROM trips_new t
+         JOIN trip_helpers th ON th.trip_id = t.id
+         LEFT JOIN routes r ON r.id = t.route_id
+         WHERE th.helper_id = ?
+         ORDER BY FIELD(t.status, 'assigned', 'delivered', 'completed', 'cancelled'), t.id DESC"
+    );
+}
 $stmt->execute([$userId]);
 $trips = $stmt->fetchAll(PDO::FETCH_ASSOC);
 

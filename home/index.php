@@ -72,13 +72,25 @@ $tripCount = 0;
 $tripIncentiveTotal = 0.0;
 if (!$isHourly && $position !== null) {
     // Driver/helper: this month's completed-trip commission, same rate logic as payroll/index.php.
-    $column = $position === 'driver' ? 'driver_id' : 'helper_id';
-    $rate = $position === 'driver' ? 0.15 : 0.08;
-    $stmt = $db->prepare(
-        "SELECT COUNT(*) AS trip_count, COALESCE(SUM(amount_per_trip), 0) AS trip_sum
-         FROM trips_new
-         WHERE $column = ? AND status = 'completed' AND DATE(completed_at) BETWEEN ? AND ?"
-    );
+    // A trip has exactly one driver but can now have several helpers (trip_helpers), so the two
+    // positions need different join shapes rather than one interpolated column name.
+    $isDriverPosition = $position === 'driver';
+    $rate = $isDriverPosition ? 0.15 : 0.08;
+
+    if ($isDriverPosition) {
+        $stmt = $db->prepare(
+            "SELECT COUNT(*) AS trip_count, COALESCE(SUM(amount_per_trip), 0) AS trip_sum
+             FROM trips_new
+             WHERE driver_id = ? AND status = 'completed' AND DATE(completed_at) BETWEEN ? AND ?"
+        );
+    } else {
+        $stmt = $db->prepare(
+            "SELECT COUNT(*) AS trip_count, COALESCE(SUM(t.amount_per_trip), 0) AS trip_sum
+             FROM trips_new t
+             JOIN trip_helpers th ON th.trip_id = t.id
+             WHERE th.helper_id = ? AND t.status = 'completed' AND DATE(t.completed_at) BETWEEN ? AND ?"
+        );
+    }
     $stmt->execute([$userId, $monthStart, $monthEnd]);
     $tripRow = $stmt->fetch(PDO::FETCH_ASSOC);
     $tripCount = (int) $tripRow['trip_count'];
@@ -88,13 +100,24 @@ if (!$isHourly && $position !== null) {
     // trip is open regardless of when it was assigned, and a driver looking at
     // their dashboard wants the one they are doing, not the ones that happen to
     // fall inside this month's boundaries.
-    $stmt = $db->prepare(
-        "SELECT t.*, r.destination
-         FROM trips_new t
-         LEFT JOIN routes r ON r.id = t.route_id
-         WHERE t.$column = ? AND t.status IN ('assigned', 'delivered')
-         ORDER BY t.id DESC LIMIT 1"
-    );
+    if ($isDriverPosition) {
+        $stmt = $db->prepare(
+            "SELECT t.*, r.destination
+             FROM trips_new t
+             LEFT JOIN routes r ON r.id = t.route_id
+             WHERE t.driver_id = ? AND t.status IN ('assigned', 'delivered')
+             ORDER BY t.id DESC LIMIT 1"
+        );
+    } else {
+        $stmt = $db->prepare(
+            "SELECT t.*, r.destination
+             FROM trips_new t
+             JOIN trip_helpers th ON th.trip_id = t.id
+             LEFT JOIN routes r ON r.id = t.route_id
+             WHERE th.helper_id = ? AND t.status IN ('assigned', 'delivered')
+             ORDER BY t.id DESC LIMIT 1"
+        );
+    }
     $stmt->execute([$userId]);
     $activeTrip = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
 }

@@ -82,12 +82,20 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['finalize_
 
         // Driver/helper pay is trip-commission-only and isn't gated by approved hourly timesheets,
         // so pull in anyone with a completed trip in this period who wasn't already caught above.
+        // A trip has one driver but can have several helpers (trip_helpers), so "does this person
+        // have a completed trip" is spelled as an EXISTS rather than a single join condition.
         $stmt = $db->prepare(
             "SELECT DISTINCT u.id, u.name FROM users u
              JOIN employee_profiles ep ON ep.user_id = u.id
-             JOIN trips_new t ON (t.driver_id = u.id OR t.helper_id = u.id)
-             WHERE ep.position IN ('driver', 'helper') AND t.status = 'completed'
-               AND DATE(t.completed_at) BETWEEN ? AND ?"
+             WHERE ep.position IN ('driver', 'helper')
+               AND EXISTS (
+                 SELECT 1 FROM trips_new t
+                 WHERE t.status = 'completed' AND DATE(t.completed_at) BETWEEN ? AND ?
+                   AND (
+                     t.driver_id = u.id
+                     OR EXISTS (SELECT 1 FROM trip_helpers th WHERE th.trip_id = t.id AND th.helper_id = u.id)
+                   )
+               )"
         );
         $stmt->execute([$periodStart, $periodEnd]);
         $tripEmployees = $stmt->fetchAll(PDO::FETCH_ASSOC);
