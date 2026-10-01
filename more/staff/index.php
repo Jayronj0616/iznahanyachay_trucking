@@ -19,28 +19,18 @@ $currentUserId = (int) $_SESSION['user']['id'];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
 
-    if ($action === 'update_admin_login') {
-        $username = trim($_POST['username'] ?? '');
+    if ($action === 'update_security_question') {
         $securityQuestion = trim($_POST['security_question'] ?? '');
         $securityAnswer = trim($_POST['security_answer'] ?? '');
 
-        if ($username === '' || !preg_match('/^[a-zA-Z0-9_.-]{3,50}$/', $username)) {
-            $error = 'Username must be 3-50 characters (letters, numbers, . _ -  only).';
+        if ($securityQuestion === '' || $securityAnswer === '') {
+            $error = 'Both a question and an answer are required.';
         } else {
-            try {
-                if ($securityQuestion !== '' && $securityAnswer !== '') {
-                    // Case-insensitive on purpose -- an exact-case match is a common way
-                    // for a legitimate answer to fail a recovery check by accident.
-                    $stmt = $db->prepare('UPDATE users SET username = ?, security_question = ?, security_answer_hash = ? WHERE id = ?');
-                    $stmt->execute([$username, $securityQuestion, password_hash(mb_strtolower($securityAnswer), PASSWORD_DEFAULT), $currentUserId]);
-                } else {
-                    $stmt = $db->prepare('UPDATE users SET username = ? WHERE id = ?');
-                    $stmt->execute([$username, $currentUserId]);
-                }
-                $success = 'Your admin sign-in was updated. The shared employee login no longer accepts your email — use Admin Login with your username instead.';
-            } catch (PDOException $e) {
-                $error = str_contains($e->getMessage(), 'Duplicate entry') ? 'That username is already taken.' : 'Update failed: ' . $e->getMessage();
-            }
+            // Case-insensitive on purpose -- an exact-case match is a common way for a
+            // legitimate answer to fail a recovery check by accident.
+            $stmt = $db->prepare('UPDATE users SET security_question = ?, security_answer_hash = ? WHERE id = ?');
+            $stmt->execute([$securityQuestion, password_hash(mb_strtolower($securityAnswer), PASSWORD_DEFAULT), $currentUserId]);
+            $success = 'Your security question was updated.';
         }
     } elseif ($action === 'create_payroll_master') {
         $name = trim($_POST['name'] ?? '');
@@ -106,7 +96,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$me = $db->prepare('SELECT username, security_question FROM users WHERE id = ?');
+$me = $db->prepare('SELECT security_question FROM users WHERE id = ?');
 $me->execute([$currentUserId]);
 $myLogin = $me->fetch(PDO::FETCH_ASSOC);
 
@@ -137,27 +127,24 @@ $pendingRequests = $db->query(
   <?php endif; ?>
 
   <div class="bg-gray-50 dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-xl p-6">
-    <h2 class="text-gray-900 dark:text-white font-bold mb-1">Your Admin Sign-in</h2>
+    <h2 class="text-gray-900 dark:text-white font-bold mb-1">Your Password Recovery</h2>
     <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
-      A username for <a href="<?php echo BASE_PATH; ?>/login/admin/" class="underline">Admin Login</a>, separate from the employee sign-in, plus a security question for recovering your own password (you have nobody above you to route a reset request to).
-      <?php if ($myLogin['username']): ?>
-        Current username: <span class="font-mono font-semibold text-gray-900 dark:text-white"><?php echo htmlspecialchars($myLogin['username']); ?></span>.
-      <?php endif; ?>
+      You sign in the same way as everyone else, with your email — Owner/Admin just happens to use
+      a company email instead of a personal one. The one thing that's different: you have nobody
+      above you to route a forgot-password request to, so set a security question here instead.
+      It's what <a href="<?php echo BASE_PATH; ?>/forgot-password/" class="underline">Forgot Password</a>
+      asks you if it recognizes your email as an Owner/Admin account.
     </p>
-    <form method="POST" data-confirm="Update your admin sign-in?" class="space-y-4">
-      <input type="hidden" name="action" value="update_admin_login">
-      <div>
-        <label for="staff-username" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Username</label>
-        <input id="staff-username" type="text" name="username" value="<?php echo htmlspecialchars($myLogin['username'] ?? ''); ?>" required class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
-      </div>
+    <form method="POST" data-confirm="Update your security question?" class="space-y-4">
+      <input type="hidden" name="action" value="update_security_question">
       <div>
         <label for="staff-question" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Security Question</label>
-        <input id="staff-question" type="text" name="security_question" value="<?php echo htmlspecialchars($myLogin['security_question'] ?? ''); ?>" maxlength="255" placeholder="e.g. What was your first company's name?" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
+        <input id="staff-question" type="text" name="security_question" value="<?php echo htmlspecialchars($myLogin['security_question'] ?? ''); ?>" maxlength="255" required placeholder="e.g. What was your first company's name?" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
       </div>
       <div>
         <label for="staff-answer" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Security Answer</label>
-        <input id="staff-answer" type="text" name="security_answer" placeholder="<?php echo $myLogin['security_question'] ? 'Leave blank to keep your current answer' : ''; ?>" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
-        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Not case-sensitive. Fill both question and answer together to change either.</p>
+        <input id="staff-answer" type="text" name="security_answer" required placeholder="<?php echo $myLogin['security_question'] ? 'Re-enter to change it' : ''; ?>" class="w-full bg-white dark:bg-surface border border-gray-300 dark:border-surface-border rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:border-brand-yellow">
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Not case-sensitive.</p>
       </div>
       <button type="submit" class="bg-brand-orange text-white font-bold rounded-lg px-5 py-3 hover:opacity-90 transition">Save</button>
     </form>

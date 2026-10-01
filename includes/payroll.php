@@ -249,3 +249,43 @@ function applyDeductions(float $grossPay, string $contributionMode = 'employer_w
         'pagibig_note' => $pagibigNote,
     ];
 }
+
+/**
+ * Recovers every outstanding cash advance ("vale") for one employee against this
+ * period's pay -- a one-time flat deduction, not an installment plan: the full
+ * outstanding balance is recovered in a single run, capped at whatever gross
+ * survives the statutory deductions above (same reasoning as applyDeductions()'s own
+ * allocator -- nothing can be withheld that was not earned).
+ *
+ * Marks every outstanding row 'deducted' and stamps it with the payroll run it was
+ * recovered in, so it is never collected twice. Does NOT start a transaction --
+ * callers that also write the payroll_runs row (payroll/index.php) wrap both in one.
+ *
+ * Returns ['amount' => float, 'note' => string|null].
+ */
+function applyCashAdvances(PDO $db, int $userId, float $grossAfterStatutoryDeductions, int $payrollRunId): array
+{
+    $stmt = $db->prepare("SELECT id, amount FROM cash_advances WHERE user_id = ? AND status = 'outstanding' ORDER BY given_at ASC");
+    $stmt->execute([$userId]);
+    $outstanding = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    if (empty($outstanding)) {
+        return ['amount' => 0.0, 'note' => null];
+    }
+
+    $totalOutstanding = round(array_sum(array_column($outstanding, 'amount')), 2);
+    $recovered = round(min($totalOutstanding, max(0, $grossAfterStatutoryDeductions)), 2);
+
+    $ids = array_column($outstanding, 'id');
+    $placeholders = implode(',', array_fill(0, count($ids), '?'));
+    $stmt = $db->prepare(
+        "UPDATE cash_advances SET status = 'deducted', payroll_run_id = ?, deducted_at = NOW() WHERE id IN ($placeholders)"
+    );
+    $stmt->execute([$payrollRunId, ...$ids]);
+
+    $note = $recovered < $totalOutstanding
+        ? sprintf('Recovered %.2f of %.2f outstanding — capped, gross too low', $recovered, $totalOutstanding)
+        : sprintf('%.2f cash advance recovered', $recovered);
+
+    return ['amount' => $recovered, 'note' => $note];
+}

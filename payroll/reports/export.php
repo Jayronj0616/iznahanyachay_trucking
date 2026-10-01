@@ -77,11 +77,11 @@ fputcsv($out, [
     'Employee', 'Email', 'Position', 'Period Start', 'Period End',
     'Regular Hours', 'OT Hours', 'Rate Per Hour', 'OT Rate Per Hour',
     'Trips', 'Basic Pay', 'OT Pay', 'Trip Commission', 'Gross Pay',
-    'SSS', 'PhilHealth', 'Pag-IBIG', 'Total Deductions', 'Net Pay', 'Status',
+    'SSS', 'PhilHealth', 'Pag-IBIG', 'Total Deductions', 'Cash Advance', 'Net Pay', 'Status',
 ]);
 
 $t = array_fill_keys(
-    ['reg', 'ot', 'trips', 'basic', 'otpay', 'comm', 'gross', 'sss', 'ph', 'pi', 'ded', 'net'],
+    ['reg', 'ot', 'trips', 'basic', 'otpay', 'comm', 'gross', 'sss', 'ph', 'pi', 'ded', 'adv', 'net'],
     0.0
 );
 
@@ -100,6 +100,7 @@ foreach ($rows as $r) {
     $t['ph']    += (float) $r['philhealth_deduction'];
     $t['pi']    += (float) $r['pagibig_deduction'];
     $t['ded']   += (float) $r['total_deductions'];
+    $t['adv']   += (float) $r['cash_advance_deduction'];
     $t['net']   += (float) $r['net_pay'];
 
     fputcsv($out, [
@@ -121,6 +122,7 @@ foreach ($rows as $r) {
         number_format((float) $r['philhealth_deduction'], 2, '.', ''),
         number_format((float) $r['pagibig_deduction'], 2, '.', ''),
         number_format((float) $r['total_deductions'], 2, '.', ''),
+        number_format((float) $r['cash_advance_deduction'], 2, '.', ''),
         number_format((float) $r['net_pay'], 2, '.', ''),
         $r['status'],
     ]);
@@ -140,6 +142,7 @@ fputcsv($out, [
     number_format($t['ph'], 2, '.', ''),
     number_format($t['pi'], 2, '.', ''),
     number_format($t['ded'], 2, '.', ''),
+    number_format($t['adv'], 2, '.', ''),
     number_format($t['net'], 2, '.', ''),
     '',
 ]);

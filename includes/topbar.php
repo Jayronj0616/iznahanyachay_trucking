@@ -16,7 +16,13 @@ if (!isset($topbarExtra)) { $topbarExtra = ''; }
 //
 // The five bottom-nav destinations are roots — there is nowhere above them, so they
 // get no button. A page can override the target by setting $backHref/$backLabel
-// before including this file.
+// before including this file, or suppress the button entirely (treat itself as a
+// root too) by setting $backHref = '' -- NOT null. PHP's isset() returns false for
+// a null value, so a page that set $backHref = null before this include would look
+// exactly like a page that never set it at all, and would silently fall through to
+// the auto-derivation below instead of being suppressed. '' is the only value that
+// is both isset()-true (skips auto-derivation) and treated as "no button" by the
+// render check further down.
 $tsNavRoots = ['home', 'timesheet', 'home/overview', 'payroll', 'more'];
 $tsSectionLabels = [
     'home'      => 'Home',
@@ -63,7 +69,7 @@ $tsRoleLabel = isset($_SESSION['user'])
 <?php endif; ?>
 <div class="flex items-center justify-between px-4 pt-4 sm:px-6 sm:pt-6 max-w-3xl mx-auto w-full">
   <div class="flex items-center gap-2 text-gray-900 dark:text-white font-semibold">
-    <?php if ($backHref !== null): ?>
+    <?php if ($backHref !== null && $backHref !== ''): ?>
       <a
         href="<?php echo htmlspecialchars($backHref); ?>"
         title="Back to <?php echo htmlspecialchars($backLabel); ?>"

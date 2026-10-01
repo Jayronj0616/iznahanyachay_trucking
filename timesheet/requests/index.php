@@ -71,16 +71,20 @@ $pendingRequests = $db->query(
 
 include __DIR__ . '/../../includes/head.php';
 
+// No back button at all, for any role -- reached from the bottom-nav Timesheet tab (Payroll
+// Master is redirected straight here, Admin gets a "Requests" topbar button from the calendar),
+// so this page is a destination in its own right, not a step deeper into /timesheet/. The
+// topbar's auto-derived back chevron would otherwise compute /timesheet/, which loops Payroll
+// Master straight back to this same page.
+$backHref = ''; // '' suppresses the button; null would be indistinguishable from unset (see topbar.php)
+$backLabel = '';
+
 $pageIcon = '⏱️';
-$pageLabel = 'Timesheet';
+$pageLabel = 'Correction Requests';
 include __DIR__ . '/../../includes/topbar.php';
 ?>
 
 <main class="max-w-3xl mx-auto w-full px-4 pb-32 pt-4 sm:px-6 space-y-6">
-  <div>
-    <a href="<?php echo BASE_PATH; ?>/timesheet/" class="text-brand-orange text-sm font-semibold">&larr; Back to calendar</a>
-  </div>
-
   <h1 class="text-gray-900 dark:text-white font-bold text-lg">Attendance Correction Requests</h1>
 
   <?php if ($error): ?>

@@ -32,6 +32,13 @@ include __DIR__ . '/../includes/topbar.php';
         <span class="block text-sm text-gray-500 dark:text-gray-400"><?php echo $_SESSION['user']['role'] === 'admin' ? 'Manage delivery routes and rates' : 'Propose delivery routes and rates'; ?></span>
       </span>
     </a>
+    <a href="<?php echo BASE_PATH; ?>/more/cash-advances/" class="flex items-start gap-3 px-5 py-4 hover:bg-gray-50 dark:hover:bg-white/5 transition">
+      <span class="text-xl">💵</span>
+      <span>
+        <span class="block font-semibold text-gray-900 dark:text-white">Cash Advances</span>
+        <span class="block text-sm text-gray-500 dark:text-gray-400">Record an advance, recovered from the next payroll run</span>
+      </span>
+    </a>
     <?php endif; ?>
 
     <?php if ($_SESSION['user']['role'] === 'admin'): ?>
@@ -67,7 +74,7 @@ include __DIR__ . '/../includes/topbar.php';
       <span class="text-xl">🗝️</span>
       <span>
         <span class="block font-semibold text-gray-900 dark:text-white">Staff Accounts</span>
-        <span class="block text-sm text-gray-500 dark:text-gray-400">Payroll Master accounts, your admin sign-in, password requests</span>
+        <span class="block text-sm text-gray-500 dark:text-gray-400">Payroll Master accounts, your password recovery, password requests</span>
       </span>
     </a>
     <?php endif; ?>

@@ -45,14 +45,15 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['finalize_
                 'INSERT INTO payslips
                  (payroll_run_id, user_id, period_start, period_end, regular_hours, ot_hours, base_pay, ot_pay,
                   trip_incentive_total, gross_pay, sss_deduction, philhealth_deduction, pagibig_deduction,
-                  total_deductions, net_pay)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                  total_deductions, cash_advance_deduction, net_pay)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
             );
             $stmt->execute([
                 $run['id'], $run['user_id'], $run['period_start'], $run['period_end'],
                 $run['regular_hours'], $run['ot_hours'], $basePay, $otPay,
                 $run['trip_incentive_total'], $run['gross_pay'], $run['sss_deduction'],
-                $run['philhealth_deduction'], $run['pagibig_deduction'], $run['total_deductions'], $run['net_pay'],
+                $run['philhealth_deduction'], $run['pagibig_deduction'], $run['total_deductions'],
+                $run['cash_advance_deduction'], $run['net_pay'],
             ]);
 
             $stmt = $db->prepare('UPDATE payroll_runs SET status = "finalized" WHERE id = ?');
@@ -161,6 +162,18 @@ if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['finalize_
                 ]);
 
                 $runId = (int) $db->lastInsertId();
+
+                // Cash advance ("vale") recovery needs the run's own id to stamp the
+                // cash_advances rows it settles, so it runs after the insert above and
+                // updates net_pay in a second statement rather than being folded into
+                // the first insert.
+                $cashAdvance = applyCashAdvances($db, $userId, $netPay, $runId);
+                if ($cashAdvance['amount'] > 0) {
+                    $netPay = round($netPay - $cashAdvance['amount'], 2);
+                    $stmt = $db->prepare('UPDATE payroll_runs SET cash_advance_deduction = ?, net_pay = ? WHERE id = ?');
+                    $stmt->execute([$cashAdvance['amount'], $netPay, $runId]);
+                }
+
                 $stmt = $db->prepare(
                     'INSERT INTO deductions (payroll_run_id, user_id, type, amount, basis_note) VALUES (?, ?, ?, ?, ?)'
                 );
@@ -333,6 +346,7 @@ if (!empty($runs)) {
                   ['SSS', '−₱' . number_format($run['sss_deduction'], 2)],
                   ['PhilHealth', '−₱' . number_format($run['philhealth_deduction'], 2)],
                   ['Pag-IBIG', '−₱' . number_format($run['pagibig_deduction'], 2)],
+                  ['Cash Advance', '−₱' . number_format($run['cash_advance_deduction'], 2)],
               ],
               'net' => '₱' . number_format($run['net_pay'], 2),
               'deductions' => array_map(function ($d) {
@@ -447,6 +461,7 @@ if (!empty($runs)) {
             <th class="pr-6 pb-3">SSS</th>
             <th class="pr-6 pb-3">PhilHealth</th>
             <th class="pr-6 pb-3">Pag-IBIG</th>
+            <th class="pr-6 pb-3">Cash Advance</th>
             <th class="pr-6 pb-3">Net Pay</th>
             <th class="pr-6 pb-3">Status</th>
             <th class="pb-3">Details</th>
@@ -455,7 +470,7 @@ if (!empty($runs)) {
         <tbody>
           <?php if (empty($runs)): ?>
             <tr class="border-t border-gray-200 dark:border-surface-border">
-              <td colspan="14" class="text-center text-gray-500 dark:text-gray-400 py-6">No payroll runs yet — use Run Payroll above to get started</td>
+              <td colspan="15" class="text-center text-gray-500 dark:text-gray-400 py-6">No payroll runs yet — use Run Payroll above to get started</td>
             </tr>
           <?php else: ?>
             <?php foreach ($runs as $run): ?>
@@ -471,6 +486,7 @@ if (!empty($runs)) {
                 <td class="pr-6 py-2 text-right">₱<?php echo number_format($run['sss_deduction'], 2); ?></td>
                 <td class="pr-6 py-2 text-right">₱<?php echo number_format($run['philhealth_deduction'], 2); ?></td>
                 <td class="pr-6 py-2 text-right">₱<?php echo number_format($run['pagibig_deduction'], 2); ?></td>
+                <td class="pr-6 py-2 text-right">₱<?php echo number_format($run['cash_advance_deduction'], 2); ?></td>
                 <td class="pr-6 py-2 text-right font-bold">₱<?php echo number_format($run['net_pay'], 2); ?></td>
                 <td class="py-2"><?php $renderStatus($run); ?></td>
                 <td class="py-2"><?php $renderDetails($run); ?></td>

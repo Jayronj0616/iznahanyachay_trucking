@@ -21,7 +21,11 @@ if ($roleForTopbar === 'employee') {
 include __DIR__ . '/../includes/topbar.php';
 
 $db = getDB();
-$isAdmin = $_SESSION['user']['role'] === 'admin';
+// Payroll Master reviews timesheets too -- salary computation is built on approved hours, so a
+// role "in charge of salary of computation" needs to see and approve them, same access Admin has
+// here. Only Finalize (locking a payslip, in payroll/index.php) and approving Payroll Master's own
+// rate proposals stay Admin-only, matching the propose/approve split already built for routes.
+$isAdmin = in_array($_SESSION['user']['role'], ['admin', 'payroll_master'], true);
 $employees = [];
 
 if ($isAdmin) {

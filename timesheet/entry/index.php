@@ -4,7 +4,11 @@ $activeNav = 'timesheet';
 require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../includes/biometric.php';
 requireLogin();
-$isAdmin = $_SESSION['user']['role'] === 'admin';
+// "Admin" here really means "reviewer" -- Payroll Master gets the same view/approve/reject/delete
+// access as Owner/Admin on an individual entry, same reasoning as timesheet/index.php and
+// timesheet/review/: salary computation is built on approved hours, so the role in charge of
+// computing it needs to be able to see and approve them, not just Owner/Admin.
+$isAdmin = in_array($_SESSION['user']['role'], ['admin', 'payroll_master'], true);
 
 $db = getDB();
 $error = null;

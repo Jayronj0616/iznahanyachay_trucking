@@ -90,7 +90,8 @@ $t = [
     'headcount' => count($rows),
     'regular_hours' => 0.0, 'ot_hours' => 0.0, 'trip_count' => 0,
     'base_pay' => 0.0, 'ot_pay' => 0.0, 'commission' => 0.0, 'gross' => 0.0,
-    'sss' => 0.0, 'philhealth' => 0.0, 'pagibig' => 0.0, 'deductions' => 0.0, 'net' => 0.0,
+    'sss' => 0.0, 'philhealth' => 0.0, 'pagibig' => 0.0, 'deductions' => 0.0,
+    'cash_advance' => 0.0, 'net' => 0.0,
 ];
 // The two pay models this company runs on, reported separately because they answer
 // different questions: one is a wage bill, the other is a cost of deliveries.
@@ -114,6 +115,7 @@ foreach ($rows as &$r) {
     $t['philhealth']    += (float) $r['philhealth_deduction'];
     $t['pagibig']       += (float) $r['pagibig_deduction'];
     $t['deductions']    += (float) $r['total_deductions'];
+    $t['cash_advance']  += (float) $r['cash_advance_deduction'];
     $t['net']           += (float) $r['net_pay'];
 
     $model = in_array($r['position'], ['driver', 'helper'], true) ? 'commission' : 'hourly';
@@ -326,6 +328,7 @@ $exportQuery = http_build_query([
                 <th class="pr-6 pb-2 text-right">SSS</th>
                 <th class="pr-6 pb-2 text-right">PhilHealth</th>
                 <th class="pr-6 pb-2 text-right">Pag-IBIG</th>
+                <th class="pr-6 pb-2 text-right">Cash Advance</th>
                 <th class="pr-6 pb-2 text-right">Net Pay</th>
                 <th class="pb-2">Status</th>
               </tr>
@@ -347,6 +350,7 @@ $exportQuery = http_build_query([
                   <td class="pr-6 py-2 text-right tabular-nums"><?php echo peso((float) $r['sss_deduction']); ?></td>
                   <td class="pr-6 py-2 text-right tabular-nums"><?php echo peso((float) $r['philhealth_deduction']); ?></td>
                   <td class="pr-6 py-2 text-right tabular-nums"><?php echo peso((float) $r['pagibig_deduction']); ?></td>
+                  <td class="pr-6 py-2 text-right tabular-nums"><?php echo peso((float) $r['cash_advance_deduction']); ?></td>
                   <td class="pr-6 py-2 text-right tabular-nums font-bold"><?php echo peso((float) $r['net_pay']); ?></td>
                   <td class="py-2">
                     <?php if ($r['status'] === 'finalized'): ?>
@@ -370,6 +374,7 @@ $exportQuery = http_build_query([
                 <td class="pr-6 py-2.5 text-right tabular-nums"><?php echo peso($t['sss']); ?></td>
                 <td class="pr-6 py-2.5 text-right tabular-nums"><?php echo peso($t['philhealth']); ?></td>
                 <td class="pr-6 py-2.5 text-right tabular-nums"><?php echo peso($t['pagibig']); ?></td>
+                <td class="pr-6 py-2.5 text-right tabular-nums"><?php echo peso($t['cash_advance']); ?></td>
                 <td class="pr-6 py-2.5 text-right tabular-nums"><?php echo peso($t['net']); ?></td>
                 <td class="py-2.5"></td>
               </tr>

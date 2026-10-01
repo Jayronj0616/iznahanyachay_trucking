@@ -185,6 +185,15 @@ $positionLabels = [
               <td class="pt-2.5">Total deductions</td>
               <td class="pt-2.5 text-right tabular-nums">&minus;₱<?php echo number_format($payslip['total_deductions'], 2); ?></td>
             </tr>
+            <?php if ((float) $payslip['cash_advance_deduction'] > 0): ?>
+              <tr class="text-gray-900 dark:text-white">
+                <td class="py-1.5">
+                  Cash advance
+                  <span class="block text-xs text-gray-400 dark:text-gray-500">Recovery of a prior advance, not a statutory deduction</span>
+                </td>
+                <td class="py-1.5 text-right tabular-nums align-top">&minus;₱<?php echo number_format($payslip['cash_advance_deduction'], 2); ?></td>
+              </tr>
+            <?php endif; ?>
           </tbody>
         </table>
       </div>

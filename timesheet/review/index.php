@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../../includes/auth.php';
-requireAdmin();
+requirePayrollMaster();
 
 $pageTitle = 'Review Timesheet';
 $activeNav = 'timesheet';

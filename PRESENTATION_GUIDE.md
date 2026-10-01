@@ -32,10 +32,12 @@ reference. That step is not yet browser-verified — see the note on it.
      Without it, every button on the Trips page fails.
    - `024_timesheet_approval_unique.sql` (new 2026-09-19) stops the same period being approved twice.
      Both are already applied on the machine this was written on; check before recording elsewhere.
-   - **Migrations 027–033 (new 2026-09-27, client revision branch `client-revisions`)** add the
-     Payroll Master role, the separate Admin Login page, forgot-password, database-driven
-     SSS/PhilHealth/Pag-IBIG brackets, the trip-rate approval workflow, and attendance correction
-     requests. Run `php database/migrate.php run` before recording on this branch.
+   - **Migrations 027–034 (new 2026-09-27 through 2026-09-30, client revision branch
+     `client-revisions`)** add the Payroll Master role, forgot-password, database-driven
+     SSS/PhilHealth/Pag-IBIG brackets, the trip-rate approval workflow, attendance correction
+     requests, and multiple helpers per trip. Run `php database/migrate.php run` before recording
+     on this branch. (The separate Admin Login page from migration 028 was built 2026-09-27 and
+     reversed 2026-10-01 — see SYSTEM.md — everyone logs in through the one shared form now.)
 3. **Camera permission granted to localhost** in the browser, before recording. The permission
    prompt appearing mid-demo is awkward, and the time-in step needs the webcam.
 4. **Demo data — already seeded on 2026-09-16.** The database now has:
@@ -49,25 +51,27 @@ reference. That step is not yet browser-verified — see the note on it.
    | Trips | 3 accepted (incl. one delivered 09-13 and accepted 09-16) |
    | Payroll | Sept 1–30 run for 4 employees; Charles finalized, other 3 still draft |
 
-   **Test logins — re-verified 2026-09-19 against the stored hashes, all three confirmed working.**
-   **Updated 2026-09-27: the Owner/Admin account now signs in on a separate page with a username,
-   not the shared employee modal** (client revision — see the session note in SYSTEM.md). The shared
-   modal now refuses `admin@trucking.com` outright and points to Admin Login instead.
+   **Test logins — re-verified 2026-09-19 against the stored hashes.**
+   **Updated 2026-10-01: back to one shared login form for every role** (client reversed the
+   2026-09-27 admin-login-split — see the session note in SYSTEM.md). There is no separate admin
+   page anymore; Owner/Admin and Payroll Master just happen to use a company email
+   (`@iznahanyachay.com`), while every employee uses a personal-looking one (`@gmail.com`). All four
+   log in the same way, at `/`.
 
-   | Login page | Identifier | Password | Role |
-   |------------|-----------|----------|------|
-   | `/login/admin/` | `owner.admin` (username) | `DemoAdmin2026!` | Owner/Admin |
-   | `/` (shared modal) | `pat.payroll@trucking.com` | set on creation — see below | Payroll Master |
-   | `/` (shared modal) | `employee1@trucking.com` | `DemoUser2026!` | Hourly (Dispatcher) |
-   | `/` (shared modal) | `charles@trucking.com` | `DemoUser2026!` | Driver |
+   | Email | Password | Role |
+   |-------|----------|------|
+   | `admin@iznahanyachay.com` | `DemoAdmin2026!` | Owner/Admin |
+   | `payroll@iznahanyachay.com` | `DemoPayroll2026!` | Payroll Master |
+   | `jayron.javier@gmail.com` | `DemoUser2026!` | Hourly (Dispatcher) |
+   | `charles.morales@gmail.com` | `DemoUser2026!` | Driver |
+   | `kenneth.villamayor@gmail.com` | `DemoUser2026!` | Driver |
+   | `laden.deguzman@gmail.com` | `DemoUser2026!` | Helper |
+   | `michael.torres@gmail.com` | `DemoUser2026!` | Helper (placeholder name — rename via Settings → Employees) |
 
-   The Payroll Master demo account doesn't exist until you create one from **Staff Accounts**
-   (Settings, Owner/Admin only) — Full Name, Email, Temporary Password, then have that person log
-   in once and set their own password (forced on first login, same as an invited employee).
-
-   None of the employee/driver rows is flagged for a forced password change, so neither will be
-   hijacked by the Change Password screen on first login. **Change these before the system is used
-   for real.**
+   **Payroll Master is a permanent seeded account** (2026-09-30, named "Payroll Master" — generic,
+   not tied to a real person, same convention as the "Admin" account), not a throwaway test login.
+   None of the rows above is flagged for a forced password change, so none will be hijacked by the
+   Change Password screen on first login. **Change these before the system is used for real.**
 
    > Two of these had drifted out of sync with the database and did not work as written here; they
    > were reset on 2026-09-19 to match. Passwords are bcrypt-hashed and cannot be read back, so if
