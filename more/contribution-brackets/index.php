@@ -243,7 +243,7 @@ function formatBracketAmount(array $b): string {
           <thead class="sticky top-0 bg-gray-50 dark:bg-surface-card">
             <tr class="text-orange-600 dark:text-brand-yellow font-bold">
               <th class="pr-6 pb-2">Monthly Range</th>
-              <th class="pr-6 pb-2">Contribution</th>
+              <th class="pr-6 pb-2 text-right">Contribution</th>
               <th class="pr-6 pb-2">Notes</th>
               <th class="pb-2"></th>
             </tr>

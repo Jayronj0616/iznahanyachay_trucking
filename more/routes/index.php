@@ -126,8 +126,8 @@ $pendingRoutes = array_values(array_filter($routes, fn($r) => $r['pending_amount
         <thead>
           <tr class="text-orange-600 dark:text-brand-yellow font-bold">
             <th class="pr-6 pb-2">Destination</th>
-            <th class="pr-6 pb-2">Current</th>
-            <th class="pr-6 pb-2">Proposed</th>
+            <th class="pr-6 pb-2 text-right">Current</th>
+            <th class="pr-6 pb-2 text-right">Proposed</th>
             <th class="pr-6 pb-2">Proposed By</th>
             <th class="pb-2"></th>
           </tr>
@@ -171,7 +171,7 @@ $pendingRoutes = array_values(array_filter($routes, fn($r) => $r['pending_amount
           <thead>
             <tr class="text-orange-600 dark:text-brand-yellow font-bold">
               <th class="pr-6 pb-2">Destination</th>
-              <th class="pr-6 pb-2">Amount/Trip</th>
+              <th class="pr-6 pb-2 text-right">Amount/Trip</th>
               <th class="pr-6 pb-2">Status</th>
               <th class="pb-2"></th>
             </tr>

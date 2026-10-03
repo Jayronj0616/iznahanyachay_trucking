@@ -357,7 +357,7 @@ $trips = $db->query(
               <th class="pr-6 pb-2">Route</th>
               <th class="pr-6 pb-2">Driver</th>
               <th class="pr-6 pb-2">Helper</th>
-              <th class="pr-6 pb-2">Amount</th>
+              <th class="pr-6 pb-2 text-right">Amount</th>
               <th class="pr-6 pb-2">Status</th>
               <th class="pb-2"></th>
             </tr>
