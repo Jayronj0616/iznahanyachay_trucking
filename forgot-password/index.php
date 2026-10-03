@@ -25,10 +25,10 @@ $tempPassword = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['stage'])) {
     if ($_POST['stage'] === 'lookup') {
         if ($email === '') {
-            $error = 'Please enter your email.';
+            $error = 'Please enter your email or username.';
         } else {
-            $stmt = $db->prepare('SELECT id, role, security_question FROM users WHERE email = ?');
-            $stmt->execute([$email]);
+            $stmt = $db->prepare('SELECT id, role, security_question FROM users WHERE email = ? OR username = ? ORDER BY (email = ?) DESC LIMIT 1');
+            $stmt->execute([$email, $email, $email]);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if ($user && $user['role'] === 'admin' && $user['security_question']) {
@@ -55,8 +55,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['stage'])) {
         }
     } elseif ($_POST['stage'] === 'answer') {
         $answer = trim($_POST['answer'] ?? '');
-        $stmt = $db->prepare("SELECT id, security_question, security_answer_hash FROM users WHERE email = ? AND role = 'admin'");
-        $stmt->execute([$email]);
+        $stmt = $db->prepare("SELECT id, security_question, security_answer_hash FROM users WHERE (email = ? OR username = ?) AND role = 'admin'");
+        $stmt->execute([$email, $email]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$user || !$user['security_answer_hash'] || !password_verify(mb_strtolower($answer), $user['security_answer_hash'])) {
@@ -86,15 +86,16 @@ include __DIR__ . '/../includes/head.php';
 
     <?php if ($step === 'email'): ?>
       <p class="text-center text-sm text-gray-500 dark:text-gray-400 mb-8">
-        Enter your account email. There's no automatic email reset yet.
+        Enter your email or username. There's no automatic email reset yet.
       </p>
       <form method="post" class="space-y-4">
         <input type="hidden" name="stage" value="lookup">
         <input
-          type="email"
+          type="text"
           name="email"
-          autocomplete="email"
-          placeholder="Enter your account email"
+          autocomplete="username"
+          autocapitalize="none"
+          placeholder="Enter your email or username"
           required
           class="w-full bg-transparent border border-gray-300 dark:border-surface-border rounded-full px-5 py-3 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-brand-yellow transition"
         >

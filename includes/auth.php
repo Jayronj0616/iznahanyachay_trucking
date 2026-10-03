@@ -66,8 +66,14 @@ function roleLabel(?string $role, ?string $position = null): string {
 }
 
 function attemptLogin(string $email, string $password, ?string &$failReason = null): bool {
-    $stmt = getDB()->prepare('SELECT id, name, email, password, role, must_change_password FROM users WHERE email = ?');
-    $stmt->execute([$email]);
+    // $email may also be a short username (users.username, unique, set for the Owner/Admin
+    // and Payroll Master accounts so they can sign in as just "admin" / "payroll"). An exact
+    // email match wins if both columns somehow matched different rows.
+    $stmt = getDB()->prepare(
+        'SELECT id, name, email, password, role, must_change_password FROM users
+         WHERE email = ? OR username = ? ORDER BY (email = ?) DESC LIMIT 1'
+    );
+    $stmt->execute([$email, $email, $email]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$user || !password_verify($password, $user['password'])) {

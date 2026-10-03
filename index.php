@@ -12,7 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email'])) {
     $password = $_POST['password'] ?? '';
 
     if ($email === '' || $password === '') {
-        $loginError = 'Please enter email and password.';
+        $loginError = 'Please enter your email or username and password.';
     } else {
         $failReason = null;
         if (attemptLogin($email, $password, $failReason)) {
@@ -431,10 +431,11 @@ $sessionUser = currentUser();
 
     <form method="post" class="space-y-4">
       <input
-        type="email"
+        type="text"
         name="email"
-        autocomplete="email"
-        placeholder="Enter Email"
+        autocomplete="username"
+        autocapitalize="none"
+        placeholder="Enter Email or Username"
         value="<?php echo htmlspecialchars($_POST['email'] ?? ''); ?>"
         required
         class="w-full bg-transparent border border-gray-300 dark:border-surface-border rounded-full px-5 py-3 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-brand-yellow transition"

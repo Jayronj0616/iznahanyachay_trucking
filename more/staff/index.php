@@ -129,11 +129,11 @@ $pendingRequests = $db->query(
   <div class="bg-gray-50 dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-xl p-6">
     <h2 class="text-gray-900 dark:text-white font-bold mb-1">Your Password Recovery</h2>
     <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
-      You sign in the same way as everyone else, with your email — Owner/Admin just happens to use
-      a company email instead of a personal one. The one thing that's different: you have nobody
-      above you to route a forgot-password request to, so set a security question here instead.
-      It's what <a href="<?php echo BASE_PATH; ?>/forgot-password/" class="underline">Forgot Password</a>
-      asks you if it recognizes your email as an Owner/Admin account.
+      You sign in the same way as everyone else, on the one shared login form, with your email or
+      your short username. The one thing that's different: you have nobody above you to route a
+      forgot-password request to, so set a security question here instead. It's what
+      <a href="<?php echo BASE_PATH; ?>/forgot-password/" class="underline">Forgot Password</a>
+      asks you if it recognizes your email or username as an Owner/Admin account.
     </p>
     <form method="POST" data-confirm="Update your security question?" class="space-y-4">
       <input type="hidden" name="action" value="update_security_question">
